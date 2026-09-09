@@ -96,11 +96,27 @@ const AGENT_RESERVE = Number.isFinite(Number(a.agent_reserve)) ? Math.max(0, Mat
 const COVERAGE_MATRIX = Array.isArray(a.coverage_matrix) ? a.coverage_matrix : null
 const OUTPUT_BASE = a.output_base || (MODE === 'coverage' ? 'projects/pentest' : 'projects/ctf')
 const SEVERITY_RUBRIC = a.severity_rubric === 'root-cause' ? 'root-cause' : 'demonstrated'
-// Rules of engagement for active exploitation. {reversible_writes, prohibitions[]}.
-const ROE = (a.roe && typeof a.roe === 'object') ? a.roe : { reversible_writes: false, prohibitions: [] }
+// Rules of engagement for active exploitation. {active_testing, reversible_writes, post_exploitation, prohibitions[]}.
+// House posture is ACTIVE and FULL-DEPTH: exploitation is driven to real database
+// access and command execution / shells on in-scope targets, bounded only by the
+// prohibitions. Read-only / detection-level is opt-in via the scope, never a default.
+const ROE = (a.roe && typeof a.roe === 'object') ? a.roe : { active_testing: true, reversible_writes: true, post_exploitation: true, prohibitions: [] }
 const REPORT_FORMAT = a.report_format === 'transilience' ? 'transilience' : 'htb'
 // OUTPUT_DIR: caller may pass one; otherwise Bootstrap derives it.
 let OUTPUT_DIR = a.output_dir || null
+
+// Post-exploitation depth contract — appended wherever executors/validators are
+// briefed. A confirmed primitive is driven to the deepest NON-DESTRUCTIVE rung it
+// supports (detect -> confirm -> DATA ACCESS -> CODE EXECUTION); stopping at rung 1
+// when deeper rungs were reachable with the access in hand is under-reporting.
+const EXPLOIT_DEPTH = [
+  'EXPLOITATION DEPTH (RoE: ' + (ROE.post_exploitation === false ? 'post-exploitation DISABLED by scope — detection-level proof only' : 'post-exploitation AUTHORIZED — full depth expected') + '):',
+  '- INJECTION -> DATABASE ACCESS: escalate past boolean/error/time signals to real DB access. Authentication proof first (current_user()/user(), version(), database()), then bounded enumeration (table COUNTs, <=3 sample rows or one redacted column). The proof is ACCESS, never exfiltration — no mass dumps of client/PII data. sqlmap: --batch with --stop 3 or -T <one table> bounds it.',
+  '- RCE-CLASS (RCE/deser/upload/SSTI/command injection) -> SHELL: prove code execution with evidence commands (id; hostname; uname -a), then escalate to a shell when feasible — reverse shell to an engagement-owned listener/collaborator or an established session via the primitive. NO persistence, NO backdoors, NO credential implants: capture evidence, log the session in experiments.md, tear it down.',
+  '- FILE-READ/LFI/SSRF: read one specifically-named config/secret to prove read access; record it, redact verbatim values in the report.',
+  '- ACCESS IN HAND (valid creds, exposed DB/admin/mgmt interface): attempt the authenticated DB login / admin surface single-shot with in-scope or source-leaked credentials — never spraying.',
+  '- Every rung reached is evidence: raw output to evidence/, the rung recorded in the finding, create/connect/teardown logged in experiments.md. Prohibitions bound the rungs, not whether you climb.',
+].join('\n')
 
 // ---- helpers ---------------------------------------------------------------
 // Skeptic cadence: mandatory at 5, 15, 25, then every 25. Returns the threshold
@@ -539,7 +555,7 @@ function checksPrompt(f, P = {}) {
     `  Write ${f.dir}/evidence/validation/cve-verification.md (per CVE: NVD JSON_SUMMARY, the chosen CVSS version + vector, the tools/cvss_calc.py computed score, KEV status, advisory URL + quoted affected-version line).\n` +
     `  Return cve.{applicable, primary_cve, nvd_score, computed_score, claimed_score, vector (the NVD vector), claimed_vector, on_kev, cwes[], cves:[{id,score,severity}]}. Do NOT set a 'verified'/'reconciled' flag — the workflow computes reconciliation from these numbers.\n\n` +
     `C) EXPLOIT/EVIDENCE LANE — EVERY finding must end with a script that RUNS and prints the evidence that proves the issue:\n` +
-    `  - ast.parse poc.py; run it against the target read-only (timeout 60s). Capture stdout+stderr to ${f.dir}/evidence/validation/poc-rerun-output.txt. Re-run 3x.\n` +
+    `  - ast.parse poc.py; run it against the target non-destructively (timeout 60s) — authorized in-scope proof actions (evidence commands, DB read proofs, shell session + immediate teardown) are fine; NO data modification. Capture stdout+stderr to ${f.dir}/evidence/validation/poc-rerun-output.txt. Re-run 3x.\n` +
     `  - Determinism + proof: normalize each run per skills/regression-sweep/reference/diff-normalization.md (strip timestamps/UUIDs/session tokens/nonces/dynamic ports, lowercase, compare as a set) and confirm the runs agree AND that a vuln-class SIGNAL TOKEN is present (SQLi->DB error/column value; RCE/deser->uid=0/hostname; LFI/traversal->/etc/passwd line; SSRF->internal body; XSS->exact payload echo; auth bypass->Set-Cookie/200 after disallowed nav; IDOR->leaked field; info/config->the disclosed secret/value). Record the token.\n` +
     (P.REPAIR
       ? `  - IF poc.py is missing, fails to run, or emits no proof token: REPAIR it. Write a standalone ${f.dir}/poc.py (or fix it) per skills/cve-poc-generator/reference/poc-methodology.md — argparse positional target, TIMEOUT default 10, prefixes [*]/[+]/[-]/[!], exit codes 0=vulnerable/1=not/2=error, a check_vulnerable()->{vulnerable,details,evidence} contract, read-only unless --confirm. Re-run it 3x; if it now proves the issue, set exploit.repaired=true. A finding that cannot be made to emit proof is NOT validatable.\n`
@@ -570,7 +586,7 @@ function probePrompt(f, manifest, P = {}) {
 function reproPrompt(f, poc, P = {}) {
   return `ROLE: BLIND PoC REPRODUCER (context-free, independent). cwd is repo root. You are handed ONLY a finding's ordered PoC STEPS and the target. You did NOT run the original test; you may NOT read the finding's description.md, poc.py, evidence/, attack-chain.md, session-memory.md, other findings, or any validator/refuter output. Reproduce the result as a competent tester with zero prior context would, by following the recipe EXACTLY.\n\n` +
     `FINDING: ${f.id}\nTARGET: ${P.TARGET || '(from the steps)'}\nSTEPS: ${JSON.stringify(Array.isArray(poc) ? poc : [])}\n\n` +
-    `Rules: read-only / non-destructive only — NO brute force, NO DoS, NO destructive writes, stay on the given target.\n` +
+    `Rules: non-destructive only — execute the steps EXACTLY as written (they are authorized in-scope proof actions, including DB read proofs and command-execution evidence with teardown); NO brute force, NO DoS, NO destructive writes, stay on the given target.\n` +
     `1. ENTRY POINT: confirm step 1 is a genuine starting point (open a terminal / open a browser / establish the initial connection). entry_point_ok accordingly.\n` +
     `2. EXECUTE each step IN ORDER, running its \`command\` exactly as written (timeout ~60s/step). At the LAST step, compare the observed output to the finding's claimed result; put the real observed final output in observed_result; result_matches accordingly.\n` +
     `3. PERFECT IT: if a step is wrong/ambiguous but the finding IS still reproducible, return the minimal corrected_steps (same {description, command, image_url} shape) that DO reproduce it (step 1 still an entry point, LAST step still the actual result). Only set reproduced=true if you ACTUALLY observed the result — with the given OR the corrected recipe.\n` +
@@ -789,6 +805,7 @@ const COVERAGE_DISCIPLINE = MODE === 'coverage' ? '\n' + [
   '- NO-FINGERPRINT CLASSES emit no symptom until probed — proactively test: CORS (reflected/null/credentials), unauth webhook/ingress oracles, redirect scheme-downgrade + missing HSTS, security headers on the API AND each web origin, unauth existence oracles, verbose errors, public docs/swagger, TLS posture (sslscan), stored-URL/connector SSRF.',
   '- REAL TOOLS FIRST for recon: crt.sh/certspotter/subfinder (surface), sslscan (TLS), nuclei (templated exposure), httpx, Burp/Playwright — before any bespoke requests script. Record an unavailable tool-class as a limitation; never skip it silently.',
   '- ACTIVE EXPLOITATION (RoE: ' + (ROE.reversible_writes ? 'reversible writes AUTHORIZED' : 'read-only') + '): ' + (ROE.reversible_writes ? 'a create-then-delete in your OWN org/tenant is NOT destructive. If a finding can only be proven by a write (connector base_url SSRF, mass-assignment), do the minimal write + clean up and log both in experiments.md. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'no state changes — read-only.'),
+  ...EXPLOIT_DEPTH.split('\n'),
   '- SEVERITY (' + SEVERITY_RUBRIC + '): score C/I/A on the confirmed ROOT CAUSE per formats/transilience-report-style/pentest-report.md §7.1. A transient/reversible data-state (empty table, deleted records, IMDSv2, toggled-off feature) is NOT a mitigating factor and NOT a severity ceiling; record the demonstration boundary as confidence, not as a C/I/A reduction.',
   '- BLOCKED-ON-CREDS IS FORBIDDEN until the wall is proven a true credential gap, not a self-imposed method restriction. If a class is reachable with the creds in hand (incl. an unauthenticated probe or a reversible own-org write), it is NOT blocked — test it.',
 ].join('\n') : ''
@@ -944,7 +961,7 @@ function execPrompt(mission, brief, missionId, predictedExpId) {
     (brief ? `\nRESEARCH_BRIEF (advisory, not gospel — report contradictions):\n${brief}\n` : '') +
     `\nProcedure: read source first; run the FULL escalation ladder (quickstart payloads -> encoding variants -> filter bypass -> cheat-sheet catalog -> PATT) before reporting failure; on success confirm by REPRODUCING 3x and capture a complete evidence package.\n` +
     (MODE === 'coverage'
-      ? `\nCOVERAGE-MODE EXECUTOR RULES:\n- RoE: ${ROE.reversible_writes ? 'a reversible own-org create-then-delete is AUTHORIZED to prove write-dependent findings (SSRF via a stored connector base_url, mass-assignment) — do the minimal write and ALWAYS clean up; log the create + cleanup. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'read-only; no state changes'}.\n- SEVERITY: score on the confirmed ROOT CAUSE, not the demonstrated sub-impact; a transient/reversible condition (deleted data, IMDSv2, a toggled-off feature) is NOT a severity ceiling — record it as the demonstration boundary (poc_verified + a note), never as a C/I/A reduction (formats/transilience-report-style/pentest-report.md §7.1).\n- SSRF: also mount skills/server-side/reference/scenarios/ssrf/stored-connector-url-ssrf.md and test the stored-URL/connector pattern (create a resource whose stored base_url/webhook the server later fetches -> point at 169.254.170.2 / a collaborator host -> trigger sync).\n`
+      ? `\nCOVERAGE-MODE EXECUTOR RULES:\n- RoE: ${ROE.reversible_writes ? 'a reversible own-org create-then-delete is AUTHORIZED to prove write-dependent findings (SSRF via a stored connector base_url, mass-assignment) — do the minimal write and ALWAYS clean up; log the create + cleanup. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'read-only; no state changes'}.\n${EXPLOIT_DEPTH}\n- SEVERITY: score on the confirmed ROOT CAUSE, not the demonstrated sub-impact; a transient/reversible condition (deleted data, IMDSv2, a toggled-off feature) is NOT a severity ceiling — record it as the demonstration boundary (poc_verified + a note), never as a C/I/A reduction (formats/transilience-report-style/pentest-report.md §7.1).\n- SSRF: also mount skills/server-side/reference/scenarios/ssrf/stored-connector-url-ssrf.md and test the stored-URL/connector pattern (create a resource whose stored base_url/webhook the server later fetches -> point at 169.254.170.2 / a collaborator host -> trigger sync).\n`
       : ``) +
     `WRITE (race-free — do NOT touch experiments.md, attack-chain.md, or session-memory.md; the coordinator owns those):\n` +
     `  - On a finding: OUTPUT_DIR/findings/finding-${missionId}/ with description.md, poc.py, poc_output.txt, evidence/ (must include evidence/raw-source.txt).\n` +

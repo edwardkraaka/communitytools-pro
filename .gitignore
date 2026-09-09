@@ -219,3 +219,6 @@ projects/*/.claude/skills/*
 projects/*/.claude/formats
 projects/*/.claude/tools/*
 projects/*/tools/*.py
+
+# Local Claude Code machine state (account backups, sessions) — never publish
+claude-state/
