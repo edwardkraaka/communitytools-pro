@@ -89,6 +89,40 @@ Pentest https://target.com            # Full penetration test (skills/coordinati
 
 ---
 
+## Resilient Engagements (`kali-eng`)
+
+Long-running engagements run in Kali + Claude Code containers that must survive container crashes and full host reboots without losing session state. `scripts/kali-eng.sh` and its helpers provide crash- and reboot-resilient engagements with automatic resume.
+
+**Launch:**
+
+```bash
+bash scripts/kali-eng.sh <tag> "<kickoff-command>" [country]
+# e.g.
+bash scripts/kali-eng.sh softswiss "/osint softswiss.com"
+```
+
+Each engagement gets:
+
+- a **pinned Claude session id**, so a restart resumes the exact conversation (`claude --resume <uuid>`);
+- a **persisted `~/.claude`** on the host, surviving container death and reboot;
+- claude driven inside **tmux**, so the initial kickoff and the post-crash resume nudge are submitted programmatically;
+- a Compose service with `restart: unless-stopped` plus a **systemd boot unit** that brings the stack up (VPN-healthy first) after a reboot — so engagements auto-resume unattended.
+
+**Monitor every running engagement** in one tmux view, one pane each:
+
+```bash
+bash scripts/kali-mon.sh          # (re)build the monitor
+tmux attach -t pentest            # detach: Ctrl-b d ; key an inner claude: Ctrl-b Ctrl-b <key>
+```
+
+`kali-eng.sh` refreshes this monitor automatically when it launches a new engagement (skipped while you're attached, so your view isn't disrupted).
+
+**Manual resume** (normally automatic): `docker restart eng-<tag>` — the entrypoint (`scripts/kali-resume-entrypoint.sh`) detects the persisted session and resumes it.
+
+> The Compose file, systemd units, and per-engagement volumes are generated on the host (outside this repo) by the launcher. Secrets (`.env.*`, VPN keys) are sourced at runtime and never committed.
+
+---
+
 ## Skills
 
 All canonical skill and tool definitions live at the **repo root** (`skills/`, `tools/`). Each project under `projects/` symlinks only the ones it needs — see [Repository Structure](#repository-structure) for details.

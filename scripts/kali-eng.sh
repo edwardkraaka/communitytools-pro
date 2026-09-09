@@ -41,6 +41,18 @@ EOF
 fi
 
 "$STACK/up.sh"
+
+# Refresh the all-engagements tmux monitor so this one gets a pane. Non-disruptive:
+# if someone is currently attached to the monitor, don't rebuild it under them.
+MON="$(dirname "$(readlink -f "$0")")/kali-mon.sh"
+if [ -x "$MON" ]; then
+  if [ -n "$(tmux list-clients -t pentest 2>/dev/null)" ]; then
+    echo "[kali-eng] monitor 'pentest' is attached — run 'bash $MON' to add this engagement's pane."
+  else
+    "$MON" >/dev/null 2>&1 && echo "[kali-eng] monitor refreshed — tmux attach -t pentest"
+  fi
+fi
+
 echo "[kali-eng] '$TAG' is up. Observe/interact with:"
 echo "    docker exec -it eng-${TAG} tmux attach -t eng      (detach: Ctrl-b then d)"
 echo "    docker logs -f eng-${TAG}"
