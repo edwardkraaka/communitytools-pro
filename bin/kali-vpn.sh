@@ -83,6 +83,17 @@ if [ -n "$SESS" ]; then
   HOME_MOUNT=(-v "$SESS_DIR:/home/claude")
 fi
 
+# ENGAGEMENT KICKOFF TEMPLATE (paste as the first claude input after launch;
+# use -s <tag> so transcripts + subagents persist in ~/kali-sessions/<tag>):
+#   Use the pentest-engagement skill: full penetration engagement on example.com
+#   (WEB). Run as a lean coordinator per the coordination skill: no experiment or
+#   scan tool calls inline; orchestrate phases by spawning 3-5 background executors
+#   on independent surfaces as ONE message of parallel Agent blocks; collect via
+#   TaskOutput; sole writer of the ledgers; validate each candidate on fresh blind
+#   agents; command output and screenshots go to engagement artifact files referenced
+#   by path. Where the Workflow tool is unavailable, spawn the coordinator as a
+#   background subagent instead — never run phases inline in the parent.
+#
 # Kali shares the sidecar's netns: all traffic exits via Mullvad.
 # If the tunnel dies, gluetun's kill switch blocks egress (no host-IP leak).
 # Memory cap: a ballooning claude session dies at 6G alone instead of OOM-ing the box.
