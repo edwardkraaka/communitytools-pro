@@ -9,7 +9,10 @@
 #   ENGAGEMENT_KICKOFF      first input on a FRESH start, e.g. "/osint example.com"
 # Optional:
 #   ENGAGEMENT_CWD          working dir (default /workspace)
-#   ENGAGEMENT_RESUME_NUDGE input sent on RESUME to re-arm the /loop
+#   ENGAGEMENT_RESUME_NUDGE input sent on RESUME to re-arm the /loop (default: the
+#                           lean-coordinator nudge — re-read state, run nothing inline,
+#                           fan out 3-5 parallel background executors, collect via
+#                           TaskOutput, sole ledger writer, artifacts by path)
 #   ENGAGEMENT_STAGGER_S    seconds to sleep before launch (gateway burst
 #                           protection; compose assigns 0/30/60 per slot)
 #
@@ -47,7 +50,7 @@ export CLAUDE_CODE_TMPDIR=/tmp/cr; mkdir -p /tmp/cr
 
 CWD="${ENGAGEMENT_CWD:-/workspace}"; cd "$CWD" 2>/dev/null || cd /workspace
 SID="${ENGAGEMENT_SESSION_ID:?ENGAGEMENT_SESSION_ID is required}"
-NUDGE="${ENGAGEMENT_RESUME_NUDGE:-Resume this engagement: re-read experiments.md and attack-chain.md, then re-enter the /loop and continue from where you left off.}"
+NUDGE="${ENGAGEMENT_RESUME_NUDGE:-Resume this engagement: re-read experiments.md and attack-chain.md (and session-memory.md if present), then re-enter the /loop and continue from where you left off. Stay a lean coordinator: run no experiment or scan tool calls inline — spawn 3-5 background executors on independent surfaces as ONE message of parallel Agent blocks with run_in_background, collect their reports with TaskOutput, write the ledgers yourself, and keep any command output or screenshots in engagement artifact files referenced by path. If an executor dies on a rate-limit error, halve the next batch width and wait rather than re-spawning at full width.}"
 SESS=eng
 
 # --- watchdog knobs (minutes unless _S = seconds); overridable via compose env ---
