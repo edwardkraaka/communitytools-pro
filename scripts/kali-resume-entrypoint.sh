@@ -6,7 +6,7 @@
 #
 # Required env (from the compose service):
 #   ENGAGEMENT_SESSION_ID   pinned uuid for this engagement's claude session
-#   ENGAGEMENT_KICKOFF      first input on a FRESH start, e.g. "/osint wild.io"
+#   ENGAGEMENT_KICKOFF      first input on a FRESH start, e.g. "/osint example.com"
 # Optional:
 #   ENGAGEMENT_CWD          working dir (default /workspace)
 #   ENGAGEMENT_RESUME_NUDGE input sent on RESUME to re-arm the /loop
