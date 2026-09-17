@@ -5,7 +5,7 @@ description: Pentest coordination — orchestrates executor and validator agents
 
 # Coordination
 
-Runs as a spawned subagent (one per target). Within its own context, the coordinator holds engagement state inline — it does not delegate its thinking to further sub-subagents. Thinks before every action.
+Runs as a spawned subagent (one per target). Within its own context, the coordinator holds engagement state inline — it does not delegate its thinking to further sub-subagents. Thinks before every action. **Lean driver**: the coordinator runs NO experiment, scan, or recon tool calls itself — file ops, ledger writes, integration, and spawning only; command output and screenshots stay in artifact files referenced by path.
 
 The parent orchestrator (main session) **must not** execute this workflow inline. If you find yourself doing P1-P5 in the main session, you skipped the spawn step in `skills/hackthebox/SKILL.md` (or the relevant platform skill) and the bookkeeping discipline is silently disabled.
 
@@ -20,9 +20,12 @@ P0: Ingest scope
  ↓
 P1: Recon + read source code → write attack-chain.md → run preflight-checklist
  ↓
-┌→ P2: Think — read chain + experiments.md, write 3 hypotheses (≥1 [wildcard]), pick 1-2 to test
+┌→ P2: Think — read chain + experiments.md, write 3 hypotheses (≥1 [wildcard]), pick 3-5 independent
+│      surfaces to test (1-2 when the hypotheses depend on each other)
 │  P2b: Research (conditional) — see reference/creative-research.md
-│  P3: Execute — spawn 1-2 executors with CHAIN_CONTEXT [+ RESEARCH_BRIEF]
+│  P3: Execute — fan out 3-5 executors on independent surfaces in ONE message (parallel
+│      Agent blocks, run_in_background) with CHAIN_CONTEXT [+ RESEARCH_BRIEF]; 1-2 when
+│      the hypotheses depend on each other
 │  P4: Integrate — materialize each candidate; **validate it now** (interleaved, strict per-finding,
 │      fresh blind agents) → CONFIRMED | REJECTED | CURE→re-validate | DROPPED; update chain, revise theory
 │      Coverage flips only on VALID (coverage-by-VALID); REJECTED/DROPPED classes stay pending → keep searching
@@ -36,8 +39,8 @@ P5: Engagement-thoroughness validation + Report (validated/ = VALID/REPAIRED onl
 ### Steps
 
 1. **Recon + Source Code** — read all accessible code (see `formats/reconnaissance.md`). Run pre-flight checklist (`reference/preflight-checklist.md`).
-2. **Think** — write 3 hypotheses to `attack-chain.md`, ≥1 tagged `[wildcard]`. Pick 1-2 to spawn.
-3. **Test** — 1-2 executors per batch, integrate before next.
+2. **Think** — write 3 hypotheses to `attack-chain.md`, ≥1 tagged `[wildcard]`. Pick 3-5 independent surfaces to spawn (1-2 when the hypotheses are dependent).
+3. **Test** — 3-5 executors per batch on independent surfaces as ONE message of parallel Agent blocks (`run_in_background`); 1-2 when dependent. Integrate before the next batch.
 4. **Validate (interleaved)** — validate each candidate the instant INTEGRATE materializes it, on fresh blind agents (strict per-finding cure/drop loop → CONFIRMED | REJECTED | CURE | DROPPED); at loop end run the engagement-thoroughness validator (see `reference/validator-role.md`).
 5. **Report** — the `VALID`/`REPAIRED` findings in `{OUTPUT_DIR}/artifacts/validated/` (all of them, by construction) → Transilience PDF via `formats/transilience-report-style/SKILL.md`.
 
@@ -72,7 +75,7 @@ See `reference/spawning-recipes.md` for copy-paste-ready spawn patterns per role
 
 1. **Autonomous.** Coordinator MUST NOT call `AskUserQuestion`. If a credential is missing, run `python3 tools/env-reader.py`; if it returns NOT_SET, terminate with `status=BLOCKED` and emit a clear blocker. Asking is the parent orchestrator's job.
 2. **Think before acting.** Write 3 hypotheses (≥1 wildcard) to attack-chain.md before every batch. Record rejected ones — they are the search tree.
-3. **Max 1-2 executors per batch.** Recon can use more.
+3. **Batch width: 3-5 executors on independent surfaces, spawned in ONE message of parallel Agent blocks (`run_in_background`); 1-2 when the hypotheses depend on each other.** Never more than 5. On a rate/quota executor death, halve the next batch width and wait — do not re-spawn at full width.
 4. **Pass chain context + specific PATT_URL** to executors. Not the full PATT map.
 5. **30-experiment cap.**
 6. **goal_attempts ≥ 3 on a conceptual goal** → P4b reset. Count by *goal*, not literal technique string. Five PKINIT cert variants chasing "use this cert to authenticate" = five strikes against one goal. See `reference/bookkeeping.md` for the goal column.
@@ -90,6 +93,7 @@ See `reference/spawning-recipes.md` for copy-paste-ready spawn patterns per role
 
 - Internal output (chain, logs, reports): bullets, not prose.
 - Executor prompts: 1-2 relevant skill files + the specific PATT_URL.
+- Executor final reports ≤ 20 lines (verdict / evidence-path / next-step); command output and screenshots go to OUTPUT_DIR artifact files referenced by path — never pasted, Read, or base64'd into any transcript.
 - attack-chain.md max 50 lines; bookkeeping max 10% of mission tokens.
 - User-facing output (reports, summaries): detailed.
 

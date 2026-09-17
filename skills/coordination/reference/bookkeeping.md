@@ -32,6 +32,8 @@ Cap 50 lines. Prune resolved tested items to one-liners. Three hypotheses every 
 
 `{OUTPUT_DIR}/experiments.md`. Append-only ledger. Never rewrite, never prune.
 
+**Sole-writer rule:** only the coordinator writes `experiments.md` and `attack-chain.md`. Executors return their result row in their final report (ID, result, notes, goal_attempts bump); the coordinator merges it at P4 Integrate. Five parallel executors Edit-ing one ledger is last-write-wins clobber.
+
 ```markdown
 | ID | Batch | Goal | Technique | Target | Hypothesis | Result | Goal_attempts | Notes |
 |----|-------|------|-----------|--------|------------|--------|---------------|-------|
@@ -84,9 +86,8 @@ Skip a row only if (Goal, Technique, Target, parameters-meaningful-to-the-test) 
 ## EXPERIMENT_ID injection
 
 Coordinator passes `EXPERIMENT_ID: E-NNN` in every executor prompt. Executor:
-1. Updates that row's Result + Notes on completion.
-2. Increments Goal_attempts on fail rows.
-3. Tags `tools/{NNN}_*.md` files with `linked: experiment E-NNN`.
+1. Returns that row's Result + Notes (and the Goal_attempts increment on fail) in its final report — never edits `experiments.md` itself (sole-writer: the coordinator merges the row).
+2. Tags `tools/{NNN}_*.md` files with `linked: experiment E-NNN`.
 
 ## Token budget
 

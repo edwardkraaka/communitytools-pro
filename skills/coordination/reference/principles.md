@@ -14,17 +14,28 @@ The handoff — hosts, keys, ids — is a starting point, not the boundary. When
 
 A create-then-delete in your OWN org/tenant is not destructive. If a finding can only be proven by a write, do the minimal write and clean up — never veto the proof on a self-imposed "reads only" rule. Litmus: if you will POST a token-mint on your own org, you are authorized to POST a resource-create on your own org to prove an SSRF or mass-assignment. Destructive means irreversible loss to OTHERS (DROP, mass-delete, DoS) — not a scoped object you create and then delete. Log both the create and the cleanup in `experiments.md`.
 
+## Exploitation depth — prove it to the ceiling
+
+A confirmed primitive is **under-reported** if it stops at the detection rung when deeper rungs were reachable with the access in hand. Ladder: **detect → confirm → data access → code execution**. Climb it by default (`roe.post_exploitation`, house default true; only an explicit, dated client restriction disables it):
+
+- **Injection → database access.** Escalate past boolean/error/time signals: authentication proof (`current_user()`/`user()`, `version()`, `database()`), then bounded enumeration (table COUNTs, ≤3 sample rows or one redacted column). The proof is *access*, never exfiltration — no mass dumps of client/PII data.
+- **RCE-class (RCE/deser/upload/SSTI) → shell.** Prove execution with evidence commands (`id; hostname; uname -a`), then escalate to a shell when feasible — engagement-owned listener/collaborator or a session via the primitive. No persistence, no backdoors, no credential implants: capture evidence, log the session in `experiments.md`, tear it down.
+- **File-read/LFI/SSRF → one named secret.** Read one specifically-named config/secret to prove read access; record it, redact verbatim values in the report.
+- **Access in hand → use it.** Valid creds or an exposed DB/admin interface: attempt the authenticated surface single-shot (never spraying).
+
+Record the highest rung reached in the finding. The prohibitions (non-destructive, in-scope, no DoS/brute force) bound the ladder's rungs — not whether you climb.
+
 ## Real tools before hand-rolled HTTP
 
 For web/API recon, run the real tool before any bespoke `requests`/`urllib` script: CT-log enum (`crt.sh` / `certspotter` / `subfinder`) for surface, `sslscan` for TLS, `nuclei` for templated exposure, Burp/Playwright for proxying and rendering. Hand-rolled HTTP is for targeted hypothesis tests AFTER the tool-driven surface map. Zero hits when grepping your own scripts for `subfinder|nuclei|sslscan|crt.sh` on a web engagement is a coverage failure.
 
 ## Three hypotheses, one wildcard
 
-At every P2 Think, write three hypotheses to `attack-chain.md`. At least one tagged `[wildcard]` — an angle no mounted skill explicitly prescribes. Pick 1-2 to spawn. Record the rejected ones — they form the search-tree backlog and can be revisited at P4b.
+At every P2 Think, write three hypotheses to `attack-chain.md`. At least one tagged `[wildcard]` — an angle no mounted skill explicitly prescribes. Pick 3-5 independent surfaces to spawn (1-2 when the hypotheses feed each other). Record the rejected ones — they form the search-tree backlog and can be revisited at P4b.
 
-## Depth over breadth
+## Parallel breadth, coordinator depth
 
-1-2 executors per batch (recon may use more). Integrate before next. Coordinator thinks between batches; executors don't speculate. The depth-first rhythm is the only way to keep context productive.
+3-5 executors per batch on independent surfaces (1-2 when hypotheses feed each other), spawned as ONE message of parallel Agent blocks. Coordinator stays lean — it runs no experiments inline; it thinks between batches, integrates every report, and is the sole writer of the ledgers. Executors don't speculate. Mutual dependency is the only reason to go narrow.
 
 ## Conceptual-goal stuck detection
 

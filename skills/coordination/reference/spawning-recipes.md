@@ -30,14 +30,13 @@ FIRST_ACTION (before any other tool call):
   1. Write({output_dir}/attack-chain.md, "<skeleton per bookkeeping.md §attack-chain.md>")
   2. Write({output_dir}/experiments.md, "<header row per bookkeeping.md §experiments.md>")
   3. Then run preflight-checklist Phase 1 gate (see reference/preflight-checklist.md).
-Bookkeeping files MUST exist before spawning any executor. The coordinator-flow-gate hook
-will block downstream Bash/Edit/Write on the engagement dir until attack-chain.md exists.
+Bookkeeping files MUST exist before spawning any executor — spawn only after they exist.
 """,
     run_in_background=True,
 )
 ```
 
-**Anti-pattern: running the coordinator workflow inline in the orchestrator session.** The bookkeeping discipline (goal_attempts counting, mandatory skeptic checkpoints, blind validators) requires the subagent boundary. If the parent session starts doing P1-P5 itself, the `coordinator-flow-gate` PreToolUse hook will block on the first Bash/Edit/Write targeting the engagement dir.
+**Anti-pattern: running the coordinator workflow inline in the orchestrator session.** The bookkeeping discipline (goal_attempts counting, mandatory skeptic checkpoints, blind validators) requires the subagent boundary. If the parent session starts doing P1-P5 itself, stop — the discipline is doctrine, not a hook. Spawn the coordinator instead.
 
 ## Executor — explore (recon, no findings)
 
@@ -189,15 +188,25 @@ Forbidden: attack-chain, finding internals, validator-finding artifacts.
 
 ## Patterns
 
-### Batch of 1-2 executors (depth-first cadence)
+### Batch of 3-5 executors (parallel fan-out)
 
 ```python
-ids = []
-for mission in missions[:2]:
-    a = Agent(prompt=..., run_in_background=True)
-    ids.append(a)
-# Wait for all → integrate → update chain → next batch.
+# ONE message, one Agent tool_use block per executor. Blocks inside the same
+# message run CONCURRENTLY; blocks in separate messages run sequentially (the
+# silent 1x slowdown). Width 3-5 on independent surfaces; 1-2 when the
+# hypotheses feed each other.
+Agent(description="Explore: {objective_A}", prompt=prompt_a, run_in_background=True)  # → task_id
+Agent(description="Exploit: {objective_B}", prompt=prompt_b, run_in_background=True)  # → task_id
+Agent(description="Explore: {objective_C}", prompt=prompt_c, run_in_background=True)  # → task_id
+# Record every returned task_id into attack-chain.md IMMEDIATELY (a lost id is an
+# unretrievable agent — this fleet has no ListAgents). Then collect each report:
+TaskOutput(task_id=<id_A>, block=True, timeout=60000)
+TaskOutput(task_id=<id_B>, block=True, timeout=60000)
+TaskOutput(task_id=<id_C>, block=True, timeout=60000)
+# → integrate; the coordinator writes experiments.md + attack-chain.md itself (sole-writer).
 ```
+
+Width 1-2 is correct when executor B's prompt would embed executor A's result — parallelize only hypotheses that don't feed each other.
 
 ### Interleaved per-candidate validation (the instant it's materialized)
 
@@ -221,5 +230,7 @@ Agent(prompt=engagement_validator_prompt, run_in_background=True)
 - Mounting > 2 skill files into one executor.
 - Letting a validator see `attack-chain.md` (breaks blind contract).
 - Letting a skeptic see `attack-chain.md` (breaks anti-bias contract).
-- Spawning > 2 executors in one batch (recon excepted).
+- Spawning more than 5 executors in one batch — the ceiling even for recon.
+- Launching independent executors in separate messages: same-message blocks are concurrent, sequential messages are a silent 1x slowdown.
+- Spawning mutually-feeding hypotheses in parallel — executor B's prompt depends on executor A's result; split into sequential width-1 batches.
 - Spawning a `validator-finding` without a corresponding `findings/finding-{id}/`.

@@ -22,8 +22,8 @@ Never load all skills. Never inject `SKILL.md` files into executor prompts — p
 
 | Role | File | When |
 |------|------|------|
-| Coordinator | [`skills/coordination/SKILL.md`](skills/coordination/SKILL.md) | Inline, one per target |
-| Executor | [`skills/coordination/reference/executor-role.md`](skills/coordination/reference/executor-role.md) | Spawned 1-2 per batch |
+| Coordinator | [`skills/coordination/SKILL.md`](skills/coordination/SKILL.md) | One per target — lean driver: spawns, integrates, writes ledgers; never runs experiments inline |
+| Executor | [`skills/coordination/reference/executor-role.md`](skills/coordination/reference/executor-role.md) | Spawned 3-5 per batch — parallel fan-out on independent surfaces (one message, multiple Agent blocks); 1-2 when dependent |
 | Skeptic | [`skills/coordination/reference/skeptic-role.md`](skills/coordination/reference/skeptic-role.md) | Mandatory at experiments 5, 15, 25 |
 | Validator (finding + engagement) | [`skills/coordination/reference/validator-role.md`](skills/coordination/reference/validator-role.md) | At P5 |
 

@@ -16,9 +16,11 @@ P0: Read SKILL.md + INDEX.md → choose 1-2 skills
  ↓
 P1: Recon + read source code → write attack-chain.md → run preflight-checklist
  ↓
-┌→ P2: Think — read chain + experiments.md, write 3 hypotheses (≥1 [wildcard]), pick 1-2
+┌→ P2: Think — read chain + experiments.md, write 3 hypotheses (≥1 [wildcard]), pick 3-5
+│  independent surfaces (1-2 when the hypotheses feed each other)
 │  P2b: Research (conditional) — see reference/creative-research.md
-│  P3: Spawn 1-2 executors with CHAIN_CONTEXT [+ RESEARCH_BRIEF]
+│  P3: Fan out executors in ONE message of parallel Agent blocks (run_in_background,
+│      3-5 on independent surfaces, 1-2 when dependent) with CHAIN_CONTEXT [+ RESEARCH_BRIEF]
 │  P4: Integrate — read results; **validate each new candidate now** (interleaved, strict per-finding,
 │      fresh blind agents → CONFIRMED | REJECTED | CURE→re-validate | DROPPED); update chain, revise theory
 │      Coverage flips only on VALID (coverage-by-VALID); REJECTED/DROPPED classes stay pending → keep searching
@@ -54,7 +56,8 @@ See [preflight-checklist.md](preflight-checklist.md). Coordinator MUST satisfy t
 - `AskUserQuestion` — never. Coordinator is autonomous.
 - `/skill-update` or `/slack-send` — parent orchestrator only.
 - Any write outside `OUTPUT_DIR`.
-- Spawning more than 2 executors in one batch (recon may use more).
+- Spawning more than 5 executors in one batch.
+- Running any experiment, scan, or recon tool call yourself — spawn an executor; you drive, integrate, and write the ledgers.
 - Spawning a validator without a finding to validate.
 - Skipping the mandatory skeptic at experiments 5, 15, 25.
 
