@@ -2,8 +2,8 @@
 # kali-eng.sh <tag> "<kickoff-command>" [country]
 # Register and launch a crash/reboot-resilient pentest engagement.
 #
-#   kali-eng.sh softswiss "/osint softswiss.com"
-#   kali-eng.sh wildweb   "/pentest-engagement wild.io" "South Africa"
+#   kali-eng.sh acme-osint "/osint acme.example"
+#   kali-eng.sh acme-full  "/pentest-engagement acme.example" "Sweden"
 #
 # Each engagement gets a pinned claude session id, a persisted ~/.claude on the host,
 # and an entry in the compose stack (auto-restart + auto-resume, brought up on boot by
@@ -12,11 +12,14 @@ set -euo pipefail
 
 TAG="${1:?usage: kali-eng.sh <tag> \"<kickoff>\" [country]}"
 KICKOFF="${2:?usage: kali-eng.sh <tag> \"<kickoff>\" [country]}"
-COUNTRY="${3:-South Africa}"
+COUNTRY="${FLEET_COUNTRY:-${3:-South Africa}}"
 [[ "$TAG" =~ ^[a-zA-Z0-9_.-]+$ ]] || { echo "tag must match [a-zA-Z0-9_.-]"; exit 1; }
 
 STACK=/root/pentest-stack
-GLUETUN=gluetun-za            # South Africa sidecar (see bin/kali-vpn.sh); shared, external
+# VPN sidecar for this engagement's egress. FLEET_GLUETUN env override wins (fleet
+# runner sets it after its egress preflight), else the flag, else the SE sidecar —
+# gluetun-za (Johannesburg) has been dark since Sep 16-17; `gluetun` (Sweden) is live.
+GLUETUN="${FLEET_GLUETUN:-gluetun}"
 CWD=/workspace               # skills load from the ancestor projects/pentest/.claude
 STATE="/root/kali-state/${TAG}/claude"
 ENVF="$STACK/engagements/${TAG}.env"
@@ -42,14 +45,18 @@ fi
 
 "$STACK/up.sh"
 
-# Refresh the all-engagements tmux monitor so this one gets a pane. Non-disruptive:
-# if someone is currently attached to the monitor, don't rebuild it under them.
+# Refresh the all-engagements tmux monitor so this one gets a pane. --add is
+# safe while a client is attached (no kill-session); fall back to the old
+# attached-guard behavior only if the subcommand is unavailable.
 MON="$(dirname "$(readlink -f "$0")")/kali-mon.sh"
 if [ -x "$MON" ]; then
-  if [ -n "$(tmux list-clients -t pentest 2>/dev/null)" ]; then
-    echo "[kali-eng] monitor 'pentest' is attached — run 'bash $MON' to add this engagement's pane."
-  else
+  if grep -q -- '--add' "$MON"; then
+    "$MON" --add "eng-${TAG}" >/dev/null 2>&1 \
+      && echo "[kali-eng] monitor pane added — tmux attach -t pentest"
+  elif [ -z "$(tmux list-clients -t pentest 2>/dev/null)" ]; then
     "$MON" >/dev/null 2>&1 && echo "[kali-eng] monitor refreshed — tmux attach -t pentest"
+  else
+    echo "[kali-eng] monitor 'pentest' is attached — run 'bash $MON' to add this engagement's pane."
   fi
 fi
 

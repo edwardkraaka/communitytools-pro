@@ -38,6 +38,7 @@ Same rule — when an executor needs a credential it doesn't have in its prompt,
 - Notification: `SLACK_BOT_TOKEN`, `<SLACK_CHANNEL_ID>`
 - AI: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`
 - Engagement: `FLAG` (when running benchmark suites that pass a flag via env)
+- On-chain intel: `ARKHAM_API_KEY` — Arkham Intelligence labeled-entity/balance API (funds-at-risk quantification, treasury/TVL census; header `API-Key`, base `https://api.arkm.com`, e.g. `GET /balances/address/{addr}`). Use this instead of public explorers for entity/balance/TVL intel on crypto targets. `MESSARI_API_KEY` — market metrics (secondary).
 
 ## Anti-patterns
 

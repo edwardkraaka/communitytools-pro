@@ -84,6 +84,53 @@ gitleaks detect --source /path/to/repo --log-opts="HEAD~1000..HEAD" --report-for
 
 **Gitrob** (org-wide): `gitrob -github-access-token TOKEN TARGET_ORG`.
 
+---
+
+## Phase 4: Credential Validation (detect → verify live → prove access → hand off)
+
+A secret is a lead until verified. Every candidate gets a read-only, single-shot identity check against its **issuing provider** — this separates Critical (live credential) from noise (rotated/redacted/regex false-positive) without touching data.
+
+**Re-scan with verification on** (trufflehog performs provider-side validation itself):
+```bash
+trufflehog git https://github.com/ORG/REPO --only-verified --json > raw/osint/trufflehog-REPO-verified.json
+```
+
+**Provider identity probes** (read-only, single-shot each — never iterate/spray):
+```bash
+# AWS keys: STS identity call answers live? + whose account? (no data API touched)
+AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=… aws sts get-caller-identity
+
+# Generic API keys/tokens: hit the whoami-style endpoint, nothing else
+curl -s -H "Authorization: Bearer <token>" https://api.<service>/me | jq .
+curl -s -H "X-API-KEY: <key>" https://api.<service>/v1/whoami
+
+# Google OAuth refresh token: token endpoint introspection only
+curl -s https://oauth2.googleapis.com/token -d client_id=… -d refresh_token=… -d grant_type=refresh_token
+
+# Slack: auth.test verifies the token and names the workspace
+curl -s -X POST https://slack.com/api/auth.test -d token=<token>
+
+# Twilio/Stripe/SendGrid style: fetch own account object
+curl -s -u <sid>:<token> https://api.twilio.com/2010-04-01/Accounts/<sid>.json
+```
+
+**Verified credential + in-scope asset → access proof** (engagement RoE, `roe.post_exploitation` default true):
+```bash
+# Leaked DB connection string on an in-scope database: connect + identity proof, bounded enumeration (<=3 rows)
+mysql -h <host> -u <user> -p<pass> -e "SELECT current_user(), version();"
+psql "postgres://user:pass@host/db" -c "SELECT current_user, version();"
+redis-cli -h <host> -a <pass> INFO server
+
+# Leaked SSH key + in-scope host: auth-mode probe only, capture the welcome banner
+ssh -i <key> -o BatchMode=yes -o StrictHostKeyChecking=accept-new <user>@<host> 'id; hostname'
+
+# Private key/cert for an in-scope service (e.g. mTLS client cert): handshake proof
+openssl s_client -connect <host>:443 -cert client.pem -key client.key </dev/null | head
+```
+No mass dumps, no config changes, no persistence — identity proof + bounded enumeration, teardown logged in `experiments.md`. Out-of-scope/third-party credentials: record and report, never use.
+
+**Hand-off**: write each validated credential to `session-memory.md` → Access & Credentials (value in the engagement dir only, env-var name in prompts) and flag the authenticated attack classes it unlocks for the executors.
+
 ### Exposed `.git/` recursive walker
 
 When `https://<vhost>/.git/HEAD` returns 200 but `git-dumper` can't reach it (vhost not in DNS, SNI-only certs), monkey-patch DNS in Python and walk loose objects directly. Each object lives at `.git/objects/<sha[:2]>/<sha[2:]>`, zlib-decompressed to `<kind> <size>\x00<content>`. Parse `commit` for `tree` and `parent` SHAs; parse `tree` (binary `<mode> <name>\x00<20-byte-sha>` repeating). BFS until empty, then `git checkout master` reconstructs the working tree.
@@ -104,7 +151,7 @@ GitBucket (`:8080`), Gitea (`:3000`), Gogs (`:3100`) and similar self-hosted por
 
 ---
 
-## Phase 4: Code Intelligence
+## Phase 5: Code Intelligence
 
 **Extract endpoints and config from cloned repos**:
 ```bash
@@ -156,7 +203,9 @@ terraform/, *.tf             Cloud infra, IAM, resource names
       "findings": [
         {"type": "secret", "description": "AWS Access Key ID in commit a1b2c3d",
          "file": "config/settings.py", "commit": "a1b2c3d",
-         "detector": "trufflehog", "verified": true}
+         "detector": "trufflehog", "verified": true,
+         "verified_live": true, "validation": "sts get-caller-identity -> arn:aws:iam::1234:root (read-only, single-shot)",
+         "handed_off": true}
       ]
     }
   ],
@@ -175,14 +224,19 @@ terraform/, *.tf             Cloud infra, IAM, resource names
 
 | Finding | Severity |
 |---------|----------|
-| Active cloud key (AWS/GCP/Azure) verified | CRITICAL |
-| Database connection string with credentials | CRITICAL |
-| Private SSH/TLS key | CRITICAL |
-| API key for payment/auth (Stripe, Twilio, …) | HIGH |
+| Cloud key (AWS/GCP/Azure) **verified live** (identity proof captured) | CRITICAL |
+| DB connection string **verified live** (connect + `current_user()` proof) | CRITICAL |
+| Private SSH/TLS key **verified live** (auth-mode login on in-scope host) | CRITICAL |
+| API key for payment/auth **verified live** (`/me` proof) | HIGH–CRITICAL |
+| Verified credential granting admin/service-role identity | CRITICAL |
+| Unverified cloud key / DB string / private key (found, validation failed or not yet run) | MEDIUM — a lead, not a confirmed finding |
+| API key for payment/auth (Stripe, Twilio, …), unverified | HIGH |
 | Internal hostname/IP + service version | MEDIUM |
 | Hardcoded staging/dev credentials | MEDIUM |
 | Tech stack / dependency versions | LOW |
 | Internal endpoint paths | LOW / INFO |
+
+Severity on the **root cause** (`principles.md`): an unverified secret is scored as exposure-of-a-possible-credential; the verified-live rung is what proves access. Never score Critical on an unverified candidate.
 
 ---
 

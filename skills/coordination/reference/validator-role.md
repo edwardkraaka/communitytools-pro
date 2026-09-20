@@ -24,6 +24,7 @@ Validation is **interleaved, strict per-finding** — a candidate is validated t
 3. **PoC valid** — valid Python, references the target, output matches `poc_output.txt` after re-run.
 4. **Claims vs evidence** — every factual claim in description.md corroborated by a raw scan/log file.
 5. **Log phases** — recon / experiment / test / verify present, timestamps ≥ 2 s apart (catches templated bulk-stamp findings).
+6. **Impact bar** — a proposed High/Critical must demonstrate one of: shell or box/machine access by any path — reverse shell, webshell, an RCE session on the box, or a single-shot `ssh -o BatchMode=yes` login with any discovered key/password — whichever the primitive supports, admin/service-account access, database exfiltration proof, or financial harm — on crypto targets the rung is a **fund PoC**: signing authority over at-risk funds demonstrated with a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus the quantified funds-at-risk figure. Not demonstrated and not transiently blocked → cap at Medium, `needs_live_confirmation: true`, rationale in `calibration` (severity-calibration.md rule 6, applied after Check 6's transient carve-out).
 
 ### Output (terminal routing)
 

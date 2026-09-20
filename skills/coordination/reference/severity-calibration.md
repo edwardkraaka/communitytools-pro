@@ -34,11 +34,17 @@ Each rule: the inflated claim → the precondition it omits → the calibrated v
 - **Missing precondition:** the vulnerable code path must be **enabled and reachable** — e.g. an IKEv1 aggressive-mode CVE on a gateway with only IKEv2 RA configured; an inbound HTTP-request-smuggling CVE mis-applied to an outbound-only client; a plugin CVE where the plugin is absent.
 - **Calibrated:** layer a **precondition/reachability gate** on top of the version/class match (beyond `tools/nvd-lookup.py`'s CVSS): state the required config and the observed config; if the precondition is unmet or undetermined → downgrade to Info or mark `needs_live_confirmation`. A CVE is only scored at impact when the vulnerable feature is confirmed active.
 
+## 6. High/Critical without a demonstrated impact rung
+
+- **Claim:** any finding scored High or Critical on CVSS math alone — a 9.8 CVE applied to a reachable surface, a theoretical "full takeover" chain, a scanner Critical, a detection-only proof — where the engagement never demonstrated one of the four real impacts: **shell or box/machine access by any path — reverse shell, webshell, an RCE session on the box, or a single-shot `ssh -o BatchMode=yes` login with any discovered key/password — whichever the primitive supports**, **admin / service-account access**, a **database exfiltration proof** (auth proof + bounded enumeration), or **financial harm — on crypto targets the rung is a **fund PoC**: signing authority over at-risk funds demonstrated with a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus the quantified funds-at-risk figure**.
+- **Missing precondition:** the impact rung itself. CVSS is a theory of the vulnerability; the report sells demonstrated outcomes. A detection-only or capability-only proof is a lead, not an impact.
+- **Calibrated:** none of the four rungs demonstrated **and** the deeper rung was not blocked by a transient/reversible condition (Check 6's carve-out: a confirmed root cause blocked by empty-table/deleted-records/toggled-off-feature scores at root cause and is **not** capped) → **cap at Medium**: recompute the vector's C/I/A on the demonstrated rung so Check 1 (`cvss_lint`) stays self-consistent — never a bare relabel, which fails band arithmetic — set `needs_live_confirmation: true`, and record in `calibration`: "impact unverified — demonstrated: <rung>; theoretical ceiling: CVSS <score>; blocked-by-transient: no". The corollary is the exploitation mandate (`principles.md` "Exploitation depth"): with post-exploitation authorized by default, reachable-but-untried is a reason to *go climb the rung*, not to ship a High on theory.
+
 ## How to use (validator / refuter)
 
 For each proposed finding, before ACCEPT:
-1. If it is CORS / Azure-auth / an enabler / a scanner-version-Critical / a CVE-backed claim, apply the matching rule above.
+1. If it is CORS / Azure-auth / an enabler / a scanner-version-Critical / a CVE-backed claim / a High-or-Critical without a demonstrated impact rung, apply the matching rule above.
 2. If the omitted precondition is unmet → **downgrade** to the calibrated band, or **REJECT** if the claimed impact collapses entirely.
 3. Record the calibration rationale in the finding's `calibration` field (rendered by the report) — see `formats/transilience-report-style/pentest-report.md` §7.
 
-This checklist stops **inflation**; `VALIDATION.md` Check 6 (root-cause severity floor) stops **deflation**; Check 1 + `cvss_lint` keep the arithmetic self-consistent.
+This checklist stops **inflation**; `VALIDATION.md` Check 6 (root-cause severity floor) stops **deflation**; rule 6 + Check 8 enforce the **demonstrated-impact bar** (no High/Critical without shell / admin-SSA / DB-exfiltration / financial-harm rung); Check 1 + `cvss_lint` keep the arithmetic self-consistent.

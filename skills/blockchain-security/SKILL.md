@@ -68,6 +68,9 @@ Raw `ecrecover` accepts both `(v, r, s)` and `(v', r, N-s)` (where N = secp256k1
 | Signature malleability | Raw ecrecover without s-normalization |
 
 ## Tools
+
+**On-chain intel — Arkham first (funds-at-risk quantification).** Use the Arkham labeled-entity API (not public explorers) for entity attribution, balances, and treasury/TVL census on engagement targets: `python3 tools/env-reader.py ARKHAM_API_KEY` (header `API-Key`, base `https://api.arkm.com`, `GET /balances/address/{addr}` → `totalBalance` USD). Crypto/financial findings quantify funds-at-risk with it — it feeds the financial-harm rung of the demonstrated-impact bar (severity-calibration.md rule 6) and the risk-prioritiser.
+
 ```python
 # web3.py essentials
 from web3 import Web3

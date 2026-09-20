@@ -22,8 +22,15 @@ A confirmed primitive is **under-reported** if it stops at the detection rung wh
 - **RCE-class (RCE/deser/upload/SSTI) → shell.** Prove execution with evidence commands (`id; hostname; uname -a`), then escalate to a shell when feasible — engagement-owned listener/collaborator or a session via the primitive. No persistence, no backdoors, no credential implants: capture evidence, log the session in `experiments.md`, tear it down.
 - **File-read/LFI/SSRF → one named secret.** Read one specifically-named config/secret to prove read access; record it, redact verbatim values in the report.
 - **Access in hand → use it.** Valid creds or an exposed DB/admin interface: attempt the authenticated surface single-shot (never spraying).
+- **Every discovered credential is validated, not catalogued.** Each token/key/password found (git history, config, OSINT handoff, response body) gets a single-shot, read-only identity call against its issuing provider (`/me`, `current_user`, `auth.test`, STS `GetCallerIdentity`). Found-but-unvalidated is a lead; validated-live with an identity proof is a finding. Never spray — one call per credential.
+- **SQLi climbs to a bounded exfiltration proof.** Past boolean/error/time signals: authentication proof, then bounded enumeration (COUNTs, ≤3 sample rows or one redacted column). Detection-depth injection is under-reporting when data was reachable.
+- **Discovered keys are usage attempts, not artifacts.** An SSH private key, wallet key, or signing credential found anywhere (git history, configs, buckets, OSINT handoff) is driven at its real endgame: SSH keys get a single-shot login attempt (one route to the shell/box rung), wallet keys a signed-message proof of signing authority — broadcast nothing, move nothing, redact the key value. A discovered-but-untried key is a lead; a validated login or signature is the rung.
+- **RCE-class gets a shell attempt, always.** Evidence commands are the floor, not the ceiling — attempt the engagement-owned listener or session establishment before settling for command-output proof. Record the attempt and why it fell short if it did.
+- **Pursue the end goal creatively.** When the mapped path stalls, revisit the goal — shell/box access, admin/SSA, sqli/data, money (a fund PoC on crypto) — and re-derive a path to IT, not a cosmetic variant of the stalled technique (pivot menu, not cookbook). The end goal is real infrastructure compromise, not detection depth.
 
 Record the highest rung reached in the finding. The prohibitions (non-destructive, in-scope, no DoS/brute force) bound the ladder's rungs — not whether you climb.
+
+**RoE authorization boundary — never stall on a self-invented constraint.** The four impact rungs — shell or box/machine access by any path — reverse shell, webshell, an RCE session on the box, or a single-shot `ssh -o BatchMode=yes` login with any discovered key/password — whichever the primitive supports, admin/SSA access, database exfiltration proof, financial harm — on crypto targets the rung is a **fund PoC**: signing authority over at-risk funds demonstrated with a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus the quantified funds-at-risk figure — are the *authorized default* under engagement RoE (`roe.post_exploitation`, house default true). "Did not execute because of RoE" is a banned phrase for anything inside the mandate: the prohibitions (non-destructive, in-scope, no DoS/brute force) bound the rungs, not whether you climb. A genuine out-of-scope conflict (third-party asset, prohibited action class) is filed as a CIR under `reports/client-input-requests/` immediately and testing continues on the other threads — never a silent stop.
 
 ## Real tools before hand-rolled HTTP
 
@@ -80,6 +87,8 @@ When a tool fails, read the error message. Check permissions, prerequisites, con
 ## CVE risk lookup
 
 Whenever a CVE ID (`CVE-YYYY-NNNNN`) is mentioned or discovered, run `python3 tools/nvd-lookup.py <CVE-ID>` to fetch the authoritative CVSS, severity, and CWE. Include in any finding's evidence.
+
+**Attribution verification order**: a CVE→component mapping learned from a web search / security blog / AI summary is *untrusted input* — search engines have produced plausible-looking but entirely wrong plugin attributions (nonexistent parameters, wrong products). Before a CVE enters a finding, the mapping must be checked against (1) the frozen NVD snapshot (`--cache-dir`), and (2) the vendor's own changelog/source when obtainable. Validators: grep every quoted advisory string against on-disk evidence mechanically.
 
 ## No `AskUserQuestion` from coordinator
 
