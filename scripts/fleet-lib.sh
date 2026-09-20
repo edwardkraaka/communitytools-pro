@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # fleet-lib.sh — shared library for the fleet runner (sourced, not executed).
-# Deployed at /root/pentest-stack/ with the docker-compose engagement stack;
-# this is the tracked copy.
 # Fleet = N parallel interactive engagements over a targets file, driven through
 # the existing kali-eng.sh / up.sh / kali-mon.sh stack. Reuses batch-pipeline.sh
 # preflight semantics and kali-resume-entrypoint.sh idle/injection semantics.
@@ -156,7 +154,9 @@ state_set() {  # state_set <runid> <tag> <jq-expr>
 }
 
 state_get() {  # state_get <runid> <tag> <jq-expr>  (e.g. .status)
-  jq -r "$3" "$(state_file "$1" "$2")" 2>/dev/null
+  # always exit 0: a missing/corrupt state file reads as empty, never kills a
+  # set -e caller (the runner would abort mid-poll with no log line).
+  jq -r "$3" "$(state_file "$1" "$2")" 2>/dev/null || true
 }
 
 ts_age_s() {  # seconds since an ISO timestamp (empty → huge)
@@ -204,16 +204,21 @@ memory_gate() {  # refuse launch if cap-sum would exceed 0.9×(RAM+swap); warn o
 # ------------------------------------------------- artifacts (both layouts) --
 # Engagement dirs exist BOTH at $WS/YYYYMMDD_<tag>_<phase>/ and (in-container
 # relative-path quirk) $WS/projects/pentest/YYYYMMDD_<tag>_<phase>/ — glob both.
-osint_artifact() {  # → path or empty
-  ls -d "$WS"/*_"$1"_osint/reports/osint_report.md 2>/dev/null | head -1
-  ls -d "$WS"/*_"$1"_osint/reports/reconnaissance_report.md 2>/dev/null | head -1
-  ls -d "$WS"/projects/pentest/*_"$1"_osint/reports/osint_report.md 2>/dev/null | head -1
-  ls -d "$WS"/projects/pentest/*_"$1"_osint/reports/reconnaissance_report.md 2>/dev/null | head -1
+osint_artifact() {  # → path or empty; NEVER nonzero (set -e callers assign it every poll)
+  local d
+  for d in "$WS" "$WS/projects/pentest"; do
+    [ -e "$d"/*_"$1"_osint/reports/osint_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/osint_report.md; return 0; }
+    [ -e "$d"/*_"$1"_osint/reports/reconnaissance_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/reconnaissance_report.md; return 0; }
+  done
+  return 0
 }
 
 active_artifact() {
-  ls -d "$WS"/*_"$1"_active/reports/*technical*report*.md 2>/dev/null | head -1
-  ls -d "$WS"/projects/pentest/*_"$1"_active/reports/*technical*report*.md 2>/dev/null | head -1
+  local d
+  for d in "$WS" "$WS/projects/pentest"; do
+    [ -e "$d"/*_"$1"_active/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_active/reports/*technical*report*.md; return 0; }
+  done
+  return 0
 }
 
 # ------------------------------------------------------- liveness / injection --
