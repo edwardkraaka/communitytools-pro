@@ -204,7 +204,10 @@ memory_gate() {  # refuse launch if cap-sum would exceed 0.9×(RAM+swap); warn o
 # ------------------------------------------------- artifacts (both layouts) --
 # Engagement dirs exist BOTH at $WS/YYYYMMDD_<tag>_<phase>/ and (in-container
 # relative-path quirk) $WS/projects/pentest/YYYYMMDD_<tag>_<phase>/ — glob both.
-osint_artifact() {  # → path or empty; NEVER nonzero (set -e callers assign it every poll)
+# Report census across every historical engagement: dirs end _active OR _web; the
+# report itself is either a *technical*report*.md OR a branded *.pdf (generated
+# from the transilience format). Matching any of those = engagement complete.
+osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it every poll)
   local d
   for d in "$WS" "$WS/projects/pentest"; do
     [ -e "$d"/*_"$1"_osint/reports/osint_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/osint_report.md; return 0; }
@@ -214,9 +217,12 @@ osint_artifact() {  # → path or empty; NEVER nonzero (set -e callers assign it
 }
 
 active_artifact() {
-  local d
-  for d in "$WS" "$WS/projects/pentest"; do
-    [ -e "$d"/*_"$1"_active/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_active/reports/*technical*report*.md; return 0; }
+  local d sfx
+  for sfx in active web; do
+    for d in "$WS" "$WS/projects/pentest"; do
+      [ -e "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md; return 0; }
+      [ -e "$d"/*_"$1"_"$sfx"/reports/*.pdf 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*.pdf; return 0; }
+    done
   done
   return 0
 }
