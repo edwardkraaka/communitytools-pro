@@ -334,6 +334,31 @@ while :; do
           fleet_notify "$tag: engagement complete (technical report written)"
           continue
         fi
+        # PARKED-SESSION DETECTION: idle prompt + static transcript (main AND
+        # subagent bytes — the find covers the whole projects dir) + no report
+        # = session finished its work but never flushed it to reports/ (or is
+        # wedged at 100% context behind an agents overlay). Nudge at 45 min —
+        # hours before the 12h ceiling — capped at 2 nudges; the ceiling's
+        # retry logic remains the backstop.
+        now_b=$(transcript_bytes "$tag")
+        park_b=$(state_get "$RUNID" "$tag" '.park.b // -1')
+        if [ "$now_b" != "$park_b" ]; then
+          state_set "$RUNID" "$tag" ".park = {b:$now_b, at:$(date +%s), n:$(state_get "$RUNID" "$tag" '.park.n // 0')}"
+        elif pane_idle "$c"; then
+          park_at=$(state_get "$RUNID" "$tag" '.park.at // 0')
+          park_n=$(state_get "$RUNID" "$tag" '.park.n // 0')
+          if [ $(( $(date +%s) - ${park_at:-0} )) -gt 2700 ] && [ "${park_n:-0}" -lt 2 ]; then
+            # clear any agents overlay first — nudge text into an overlay is
+            # swallowed ("Enter to view · x to clear" screens)
+            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+            if docker exec "$c" tmux send-keys -t eng -l -- "Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments." 2>/dev/null; then
+              sleep 1
+              docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+              state_set "$RUNID" "$tag" ".park.n = ${park_n:-0} + 1 | .park.at = $(date +%s)"
+              log "NUDGE   $tag — idle with static transcript >45m, no report (nudge $((park_n+1))/2)"
+            fi
+          fi
+        fi
         # timeout ceiling on stage 2
         if [ "$(ts_age_s "$(state_get "$RUNID" "$tag" '.ts.injected')")" -gt $((ACTIVE_TIMEOUT_H*3600)) ]; then
           if pane_idle "$c"; then
