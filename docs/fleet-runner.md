@@ -32,6 +32,7 @@ fleet-runner.sh -n targets.txt                  # dry-run: print the plan, execu
 fleet-runner.sh status [--watch]                # status table
 fleet-runner.sh resume                          # re-adopt the active run after any restart
 fleet-runner.sh resume --run 20260920_1530_targets   # adopt a specific run dir
+fleet-runner.sh cleanup [--run DIR] [--all-done]     # retire parked done targets
 ```
 
 Cluster state lives at `fleet/<YYYYMMDD_HHMMSS>_<targets-base>/` — `state/<tag>.json`
@@ -92,11 +93,22 @@ running alongside manual engagements.
 
 ## Retirement
 
-Finished containers park until a slot is needed; the oldest `done` target is
-then stopped (30 s grace), the container removed, and its registry entry
-archived into `fleet/<runid>/registry/` (re-attach: copy the `.env` back,
-`up.sh` — the pinned session resumes where it left off). Workspace outputs and
-`kali-state/<tag>/` are never touched.
+Finished containers park until a slot is needed; under slot pressure the oldest
+`done` target is retired (container stopped+removed, registry entry archived
+into `fleet/<runid>/registry/`). To retire parked `done` targets on demand
+instead of waiting for slot pressure:
+
+```
+fleet-runner.sh cleanup                    # active run
+fleet-runner.sh cleanup --run <runid>      # specific run dir
+fleet-runner.sh cleanup --all-done         # every run dir; postmortems skipped
+```
+
+Retirement is always reversible — copy the archived `.env` back to
+`engagements/` and run `up.sh`: the pinned session resumes where it left off.
+Workspace outputs and `kali-state/<tag>/` are never touched. Manual (non-fleet)
+engagements are never touched by any of this; the state-aware retire path
+refuses tags the run doesn't own.
 
 ## Boot persistence
 

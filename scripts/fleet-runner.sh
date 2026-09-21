@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # fleet-runner.sh — run a targets file of engagements through the 2-stage chain
-# Deployed at /root/pentest-stack/ with the docker-compose engagement stack;
-# this is the tracked copy.
 # (OSINT → active pentest) across N parallel interactive containers.
 #
 #   fleet-runner.sh <targets-file> [options]
@@ -9,7 +7,7 @@
 #     --osint-timeout-h H    stage-1 wall-clock ceiling   (default 6)
 #     --active-timeout-h H   stage-2 wall-clock ceiling   (default 12)
 #     --gluetun NAME         VPN sidecar (default: probe gluetun then gluetun-za)
-#     --launch-interval S    pacing between launches      (default 60)
+#     --launch-interval S    pacing between launches      (default 10)
 #     --idle-sample S        dual idle-sample spacing     (default 90)
 #     --allow-collide        suffix colliding tags instead of erroring
 #     --dry-run / -n         print the plan; execute nothing
@@ -19,6 +17,9 @@
 #                                          its targets.txt snapshot; exits 0 if
 #                                          there is none to resume
 #   fleet-runner.sh status [--run DIR] [--watch]   — status table
+#   fleet-runner.sh cleanup [--run DIR] [--all-done] — retire parked done
+#                                          targets (stop+rm container, archive
+#                                          the .env; outputs are never touched)
 #
 # The runner OWNS only containers it registered (state/<tag>.json + FLEET_RUN
 # marker in the registry .env). The three manual engagements are never touched.
@@ -31,14 +32,75 @@ LIB=${FLEET_LIB:-/root/pentest-stack/fleet-lib.sh}
 source "$LIB"
 
 SLOTS=8; OSINT_TIMEOUT_H=6; ACTIVE_TIMEOUT_H=12
-GLUETUN_OPT=""; LAUNCH_INTERVAL=60; IDLE_SAMPLE=90
+GLUETUN_OPT=""; LAUNCH_INTERVAL=10; IDLE_SAMPLE=90
 ALLOW_COLLIDE=0; DRY_RUN=0; RUN_DIR=""
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 MODE="${1:-}"; [ -n "$MODE" ] || usage 1
 if [ "$MODE" = "status" ]; then exec bash "${FLEET_STATUS:-/root/pentest-stack/fleet-status.sh}" "${@:2}"; fi
 [ "$MODE" = "-h" ] || [ "$MODE" = "--help" ] && usage 0
+
+# ------------------------------------------------------------------- cleanup --
+# cleanup [--run DIR|RUNID] [--all-done] — the park-then-cleanup lifecycle:
+# retire every `done` target of the active run (or a given run; every run with
+# --all-done): stop+rm the container, archive the registry .env into the run's
+# registry/, remove the monitor pane, state → retired. kali-state/ and
+# workspace outputs are never touched. Postmortem runs are skipped (unresumable
+# by design). Exits non-zero if any retire fails.
+if [ "$MODE" = "cleanup" ]; then
+  shift
+  RUN_REF=""; ALL_DONE=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --run) RUN_REF="$2"; shift 2 ;;
+      --all-done) ALL_DONE=1; shift ;;
+      *) echo "usage: $0 cleanup [--run DIR|RUNID] [--all-done]" >&2; exit 1 ;;
+    esac
+  done
+  cleanup_one_run() {  # <run_dir> — retire its done targets, print per-target lines
+    local rd=$1 f tag n=0 fails=0
+    if [ -e "$rd/state.postmortem-no-resume" ]; then
+      echo "  skip $(basename "$rd") (postmortem, unresumable)"; return 0
+    fi
+    for f in "$rd"/state/*.json; do
+      [ -f "$f" ] || continue
+      [ "$(jq -r '.status // empty' "$f" 2>/dev/null)" = "done" ] || continue
+      tag=$(jq -r '.tag // empty' "$f" 2>/dev/null)
+      [ -n "$tag" ] || continue
+      if retire_engagement "$tag" "$rd/registry"          && jq --arg now "$(date -Is)" '.status="retired" | .ts.retired=$now | .last_event="cleanup retire"' "$f" > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f"; then
+        echo "  retired $tag"
+        n=$((n+1))
+      else
+        echo "  FAILED $tag" >&2
+        fails=1
+      fi
+    done
+    [ "$n" -gt 0 ] || echo "  (nothing to do — no done targets)"
+    return "$fails"
+  }
+  rc=0
+  if [ "$ALL_DONE" = 1 ]; then
+    echo "cleanup --all-done: sweeping every run dir under $FLEET_DIR"
+    for rd in "$FLEET_DIR"/[0-9]*/; do
+      [ -d "$rd" ] || continue
+      echo "$(basename "$rd"):"
+      cleanup_one_run "${rd%/}" || rc=1
+    done
+  else
+    if [ -n "$RUN_REF" ]; then
+      case "$RUN_REF" in /*) rd="$RUN_REF" ;; *) rd="$FLEET_DIR/$RUN_REF" ;; esac
+      [ -d "$rd" ] || { echo "no such run dir: $rd" >&2; exit 2; }
+    else
+      rd=$(readlink -f "$FLEET_DIR/active" 2>/dev/null) || true
+      [ -n "$rd" ] && [ -d "$rd" ] || { echo "no active fleet run — pass --run DIR" >&2; exit 2; }
+    fi
+    echo "cleanup: $(basename "$rd")"
+    cleanup_one_run "$rd" || rc=1
+  fi
+  exit "$rc"
+fi
+
 RESUME=0
 if [ "$MODE" = "resume" ]; then RESUME=1; shift; else TARGETS_FILE="$MODE"; shift; fi
 

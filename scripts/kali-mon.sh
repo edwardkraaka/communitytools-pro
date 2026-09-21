@@ -9,13 +9,21 @@
 #   bash kali-mon.sh tiled               # rebuild with a given layout
 #   tmux attach -t pentest               # then view it
 #
+# Windows hold up to MAXPANES panes; overflow spills into fleet-N windows.
+# Scope rule: pane membership is ALWAYS `list-panes -s -t pentest` — every
+# window of THIS session, nothing else. Two proven-wrong alternatives in
+# tmux 3.4: no flag lists only the ACTIVE window (panes elsewhere become
+# invisible to --add/--remove — the duplicate-pane bug), and `-a` ignores
+# -t and lists every pane on the server, session 0 included.
+#
 # Inside:  switch panes = Ctrl-b <arrow> ;  detach = Ctrl-b d
 # To send a key to the INNER claude (nested tmux), press the prefix TWICE: Ctrl-b Ctrl-b <key>
 set -euo pipefail
 S=pentest
 MAXPANES=4
 
-panes_of_session() { tmux list-panes -t "$S" -F "$1" 2>/dev/null; }
+# all windows of session S (see scope rule above)
+panes_of_session() { tmux list-panes -t "$S" -s -F "$1" 2>/dev/null; }
 
 # per-window pane listing (window-target form "$S:<idx>")
 panes_of_window() { tmux list-panes -t "$1" -F "#{pane_id}" 2>/dev/null; }
@@ -37,20 +45,28 @@ add_pane() {
     return
   fi
 
-  # already present? (match pane by title — pentest session panes only)
+  # already present? (match pane by title, all windows of the session)
   if panes_of_session '#{pane_title}' | grep -qxF "$c"; then
     echo "$c already has a pane"
     return
   fi
 
-  # first window with fewer than MAXPANES panes, else a new window
+  # first window with fewer than MAXPANES panes, else a new fleet-N window
   target=""
   for win in $(tmux list-windows -t "$S" -F '#{window_index}'); do
     n=$(panes_of_window "$S:$win" | wc -l)
-    if [ "$n" -lt "$MAXPANES" ]; then target="$S:$(echo "$win" | cut -d: -f1)"; break; fi
+    if [ "$n" -lt "$MAXPANES" ]; then target="$S:$win"; break; fi
   done
   if [ -z "$target" ]; then
-    target="$S:$(tmux new-window -t "$S" -n fleet -P -F '#{window_index}')"
+    # every window full: new fleet-N window with the pane as ITS first pane —
+    # new-window WITHOUT a command would open a stray default shell next to
+    # the split (the "high"-titled ghost panes this monitor used to leak)
+    win=$(tmux new-window -t "$S" -P -F '#{window_index}' "exec docker exec -it $c tmux attach -t eng")
+    target="$S:$win"
+    tmux rename-window -t "$target" "fleet-$win" >/dev/null 2>&1 || true
+    tmux select-pane -t "$target" -T "$c"
+    echo "Added pane $c (window $target, new)"
+    return
   fi
   tmux split-window -t "$target" "exec docker exec -it $c tmux attach -t eng"
   tmux select-pane -t "$target" -T "$c"
@@ -76,7 +92,7 @@ prune_panes() {
   # add panes for containers without one
   while read -r c; do
     [ -z "$c" ] && continue
-    present=$(tmux list-panes -t "$S" -a -F '#{pane_title}' 2>/dev/null | grep -cx "$c" || true)
+    present=$(panes_of_session '#{pane_title}' | grep -cx "$c" || true)
     [ "${present:-0}" -eq 0 ] && add_pane "$c"
   done < <(docker ps --filter name=eng- --filter status=running --format '{{.Names}}' | sort)
   # remove panes whose container is gone
@@ -85,9 +101,9 @@ prune_panes() {
     if ! docker ps -a --filter "name=^${c}$" --format '{{.Names}}' | grep -q .; then
       remove_pane "$c"
     fi
-  done < <(tmux list-panes -t "$S" -a -F '#{pane_title}' 2>/dev/null | sort -u)
+  done < <(panes_of_session '#{pane_title}' | sort -u)
   # drop the session entirely if no panes remain
-  if [ -z "$(tmux list-panes -t "$S" -a -F '#{pane_id}' 2>/dev/null)" ]; then
+  if [ -z "$(panes_of_session '#{pane_id}')" ]; then
     tmux kill-session -t "$S" 2>/dev/null || true
     echo "no panes left — session '$S' closed"
   fi
@@ -100,21 +116,32 @@ case "${1:-}" in
 esac
 
 LAYOUT="${1:-even-vertical}"   # even-vertical (stacked, full width) | tiled (grid)
+LAYOUT=${LAYOUT//_/-}          # accept either spelling; tmux wants hyphens
 
 mapfile -t CS < <(docker ps --filter name=eng- --filter status=running --format '{{.Names}}' | sort)
 [ "${#CS[@]}" -gt 0 ] || { echo "no eng-* containers running"; exit 1; }
 
+# from-scratch build, chunked like --add: window 0 holds up to MAXPANES panes,
+# overflow spills into fleet-N windows (never one giant unreadable window)
 tmux kill-session -t "$S" 2>/dev/null || true
 tmux new-session -d -s "$S" -x 250 -y 62 "exec docker exec -it ${CS[0]} tmux attach -t eng"
 tmux select-pane  -t "$S" -T "${CS[0]}"
+set_session_opts
+w=1; wn=0
 for ((i=1; i<${#CS[@]}; i++)); do
-  tmux split-window -t "$S" "exec docker exec -it ${CS[$i]} tmux attach -t eng"
+  if [ "$w" -lt "$MAXPANES" ]; then
+    tmux split-window -t "$S" "exec docker exec -it ${CS[$i]} tmux attach -t eng"
+    w=$((w+1))
+  else
+    wn=$((wn+1))
+    tmux new-window -t "$S" -n "fleet-$wn" "exec docker exec -it ${CS[$i]} tmux attach -t eng"
+    w=1
+  fi
   tmux select-pane  -t "$S" -T "${CS[$i]}"
   tmux select-layout -t "$S" "$LAYOUT"
 done
-tmux select-layout -t "$S" "$LAYOUT"
-set_session_opts
+tmux select-window -t "$S":0 >/dev/null 2>&1 || true
 
-echo "Built '$S' with ${#CS[@]} panes: ${CS[*]}"
+echo "Built '$S' with ${#CS[@]} panes in $((wn+1)) window(s): ${CS[*]}"
 echo "Attach:  tmux attach -t $S"
-echo "Detach:  Ctrl-b d   |  switch panes: Ctrl-b <arrow>   |  key to inner claude: Ctrl-b Ctrl-b <key>"
+echo "Detach:  Ctrl-b d   |  switch panes: Ctrl-b <arrow>   |  switch windows: Ctrl-b <n>   |  key to inner claude: Ctrl-b Ctrl-b <key>"

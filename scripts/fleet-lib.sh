@@ -278,15 +278,33 @@ stage2_message() {  # <url> <tag> <instructions>
 }
 
 # ---------------------------------------------------------------- retirement --
-retire_target() {  # retire_target <runid> <tag> — stop+rm container, archive .env
-  local runid=$1 tag=$2 c="eng-$2"
-  fleet_log "$runid" "retiring $tag: stop+rm container, archiving registry entry"
+# retire_engagement <tag> [archive-dir] — stop+rm the container, archive the
+# registry entry, sync monitor+compose. No state-machine deps: usable for BOTH
+# fleet-owned and manual engagements (any state transition is the caller's
+# business). Never touches kali-state/ or workspace outputs.
+retire_engagement() {
+  local tag=$1 c="eng-$1" dest="${2:-}"
+  if [ -n "$dest" ]; then mkdir -p "$dest"
+  else mkdir -p "$ENGAGE_REG/retired-manual"; dest="$ENGAGE_REG/retired-manual"; fi
   docker stop -t 30 "$c" >/dev/null 2>&1 || true
   docker rm "$c" >/dev/null 2>&1 || true
-  mkdir -p "$FLEET_DIR/$runid/registry"
-  [ -f "$ENGAGE_REG/$tag.env" ] && mv "$ENGAGE_REG/$tag.env" "$FLEET_DIR/$runid/registry/"
+  [ -f "$ENGAGE_REG/$tag.env" ] && mv "$ENGAGE_REG/$tag.env" "$dest/"
   bash "$STACK/up.sh" >/dev/null 2>&1 || true
   bash "$STACK/kali-mon.sh" --remove "$c" >/dev/null 2>&1 || true
+}
+
+# retire_target <runid> <tag> — fleet path: state-aware wrapper; guards against
+# tags the run doesn't own (manual registry entries), then delegates.
+retire_target() {
+  local runid=$1 tag=$2
+  # guard: this run's state must claim the tag (manual entries have no state
+  # file in a run dir — the FLEET_RUN marker alone is not authoritative here)
+  if [ "$(state_get "$runid" "$tag" '.tag')" != "$tag" ]; then
+    fleet_log "$runid" "REFUSED retiring $tag — not owned by this run (no state file); use retire_engagement directly for manual entries"
+    return 1
+  fi
+  fleet_log "$runid" "retiring $tag: stop+rm container, archiving registry entry"
+  retire_engagement "$tag" "$FLEET_DIR/$runid/registry"
   state_set "$runid" "$tag" '.status="retired" | .ts.retired="'$(date -Is)'" | .last_event="retired"'
   fleet_log "$runid" "retired $tag (kali-state and workspace outputs preserved; re-attach: cp registry/$tag.env to engagements/ + up.sh)"
 }
