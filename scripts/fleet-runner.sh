@@ -298,7 +298,7 @@ while :; do
               b2=$(transcript_bytes "$tag")
               if pane_idle "$c" && [ "$b1" = "$b2" ]; then
                 url=$(state_get "$RUNID" "$tag" '.url'); instr=$(state_get "$RUNID" "$tag" '.instructions')
-                msg=$(stage2_message "$url" "$tag" "$instr")
+                msg=$(stage2_message "$url" "$tag" "$instr" "$art")
                 if inject_stage2 "$c" "$msg"; then
                   state_set "$RUNID" "$tag" ".status=\"active\" | .ts.injected=\"$(date -Is)\" | .injections+=1 | .last_event=\"stage2 injected\""
                   log "ACTIVE  $tag — stage-2 injected (osint: $art)"
@@ -410,6 +410,10 @@ while :; do
     fleet_notify "fleet run $RUNID complete"
     exit 0
   fi
+
+  # reconcile monitor panes — restarts/OOMs kill docker-exec panes; a missing
+  # pane otherwise goes unnoticed until a human looks at the monitor
+  bash "$STACK/kali-mon.sh" --prune >/dev/null 2>&1 || true
 
   sleep 30
 done

@@ -207,22 +207,56 @@ memory_gate() {  # refuse launch if cap-sum would exceed 0.9×(RAM+swap); warn o
 # Report census across every historical engagement: dirs end _active OR _web; the
 # report itself is either a *technical*report*.md OR a branded *.pdf (generated
 # from the transilience format). Matching any of those = engagement complete.
-osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it every poll)
-  local d
-  for d in "$WS" "$WS/projects/pentest"; do
-    [ -e "$d"/*_"$1"_osint/reports/osint_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/osint_report.md; return 0; }
-    [ -e "$d"/*_"$1"_osint/reports/reconnaissance_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/reconnaissance_report.md; return 0; }
+# NAME FALLBACK: the in-container claude names its engagement dir from the
+# COMPANY name it derives, which need not contain the fleet tag (tag a-b-com
+# can produce 20260921_120000_ab_osint). Those dirs are found via the tag's own transcript cwd
+# ("cwd":"/workspace/projects/pentest/<dir>") — the authoritative record of
+# where that session actually worked. Registry-tag uniqueness (parse_targets
+# hard-errors on collisions) means a reused state dir = resumed engagement,
+# so stale cwds matching is resume semantics, not a false positive.
+tag_engagement_dirs() {  # <tag> <suffix> (e.g. _osint) → unique dir basenames; exit 0
+  local f
+  for f in "$KALI_STATE/$1"/claude/projects/-workspace/*.jsonl; do
+    [ -f "$f" ] || continue
+    grep -o '"cwd":"[^"]*"' "$f" 2>/dev/null | cut -d'"' -f4
+  done | sort -u | while IFS= read -r d; do
+    case "$d" in /workspace/*"$2") printf '%s\n' "${d##*/}" ;; esac
   done
   return 0
 }
 
+osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it every poll)
+  local d base
+  for d in "$WS" "$WS/projects/pentest"; do
+    [ -e "$d"/*_"$1"_osint/reports/osint_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/osint_report.md; return 0; }
+    [ -e "$d"/*_"$1"_osint/reports/reconnaissance_report.md 2>/dev/null ] && { echo "$d"/*_"$1"_osint/reports/reconnaissance_report.md; return 0; }
+  done
+  while IFS= read -r base; do
+    [ -z "$base" ] && continue
+    for d in "$WS" "$WS/projects/pentest"; do
+      [ -e "$d/$base/reports/osint_report.md" ] && { echo "$d/$base/reports/osint_report.md"; return 0; }
+      [ -e "$d/$base/reports/reconnaissance_report.md" ] && { echo "$d/$base/reports/reconnaissance_report.md"; return 0; }
+    done
+  done < <(tag_engagement_dirs "$1" "_osint")
+  return 0
+}
+
 active_artifact() {
-  local d sfx
+  local d sfx base
   for sfx in active web; do
     for d in "$WS" "$WS/projects/pentest"; do
       [ -e "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md; return 0; }
       [ -e "$d"/*_"$1"_"$sfx"/reports/*.pdf 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*.pdf; return 0; }
     done
+  done
+  for sfx in active web; do
+    while IFS= read -r base; do
+      [ -z "$base" ] && continue
+      for d in "$WS" "$WS/projects/pentest"; do
+        [ -e "$d/$base"/reports/*technical*report*.md ] && { echo "$d/$base"/reports/*technical*report*.md; return 0; }
+        [ -e "$d/$base"/reports/*.pdf ] && { echo "$d/$base"/reports/*.pdf; return 0; }
+      done
+    done < <(tag_engagement_dirs "$1" "_$sfx")
   done
   return 0
 }
@@ -237,7 +271,12 @@ transcript_bytes() {  # host-side mirror of the entrypoint ratchet for one tag
   return 0
 }
 
-pane_capture() { docker exec "$1" tmux capture-pane -pt eng -S -500 2>/dev/null || true; }
+pane_capture() {  # visible screen ONLY. 'esc to interrupt'/API banners live on the
+  # live status line; scanning scrollback (-S -500) matched STALE hints from
+  # finished turns and read parked sessions as busy — stage-2 injection then
+  # stalled for up to an hour behind a signature long since scrolled off.
+  docker exec "$1" tmux capture-pane -pt eng 2>/dev/null || true
+}
 
 pane_idle() {  # no in-flight turn, no error park
   local pane; pane=$(pane_capture "$1")
@@ -270,11 +309,17 @@ osint_kickoff() {  # <url>
   printf 'Use the osint skill: run a complete passive OSINT engagement on %s. Follow the coordination skill OUTPUT_STRUCTURE and write everything to the engagement directory. Validate every discovered credential (single-shot read-only identity calls) and hand them off in session-memory.md. You are running unattended: never ask questions and never wait for user input. Always finish by writing reports/osint_report.md in the engagement directory.' "$1"
 }
 
-stage2_message() {  # <url> <tag> <instructions>
-  local url=$1 tag=$2 instr=$3
-  local extra=""
+stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path]
+  local url=$1 tag=$2 instr=$3 art="${4:-}"
+  local extra="" where
   [ -n "$instr" ] && extra=" Per-target instructions: $instr."
-  printf 'Use the pentest-engagement skill: run a full active penetration test on %s. The OSINT report for this target already exists under projects/pentest/ — read the *_%s_osint engagement reports/osint_report.md and session-memory.md first, including every validated credential. If this is a crypto/web3 company, blockchain-security coverage is mandatory alongside the web classes. Drive every chain to real impact within RoE per the exploitation mandate: validate any newly discovered credentials single-shot, take injection findings to a bounded exfiltration proof, attempt a shell on every RCE-class finding, drive discovered SSH keys to a single-shot login attempt and wallet keys to a signed-message fund PoC (broadcast nothing, transfer nothing — the signature is the proof), pursue the end goal creatively — shell or box access by any path, admin/SSA access, sqli/data exfiltration, or financial harm — instead of stopping at detection, and quantify funds at risk for financial findings.%s Rules: active testing authorized; reversible writes on self-owned test accounts only; no DoS; no persistence; no credential brute force; route all target HTTP through the gluetun netns. You are running unattended: never wait for input; blockers become CIRs under reports/client-input-requests/. Always finish by writing the technical report in reports/.' "$url" "$tag" "$extra"
+  if [ -n "$art" ]; then
+    # exact path — company-named engagement dirs don't contain the tag
+    where="The OSINT report for this target already exists — read /workspace${art#$WS} and the session-memory.md in that engagement directory"
+  else
+    where="The OSINT report for this target already exists under projects/pentest/ — read the *_${tag}_osint engagement reports/osint_report.md and session-memory.md"
+  fi
+  printf 'Use the pentest-engagement skill: run a full active penetration test on %s. %s first, including every validated credential. If this is a crypto/web3 company, blockchain-security coverage is mandatory alongside the web classes. Drive every chain to real impact within RoE per the exploitation mandate: validate any newly discovered credentials single-shot, take injection findings to a bounded exfiltration proof, attempt a shell on every RCE-class finding, drive discovered SSH keys to a single-shot login attempt and wallet keys to a signed-message fund PoC (broadcast nothing, transfer nothing — the signature is the proof), pursue the end goal creatively — shell or box access by any path, admin/SSA access, sqli/data exfiltration, or financial harm — instead of stopping at detection, and quantify funds at risk for financial findings.%s Rules: active testing authorized; reversible writes on self-owned test accounts only; no DoS; no persistence; no credential brute force; egress already routes through the gluetun VPN netns already attached (verify the egress IP; never set up a VPN inside the container). You are running unattended: never wait for input; blockers become CIRs under reports/client-input-requests/. Always finish by writing the technical report in reports/.' "$url" "$where" "$extra"
 }
 
 # ---------------------------------------------------------------- retirement --
