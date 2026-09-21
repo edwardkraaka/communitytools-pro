@@ -332,7 +332,15 @@ retire_engagement() {
   if [ -n "$dest" ]; then mkdir -p "$dest"
   else mkdir -p "$ENGAGE_REG/retired-manual"; dest="$ENGAGE_REG/retired-manual"; fi
   docker stop -t 30 "$c" >/dev/null 2>&1 || true
-  docker rm "$c" >/dev/null 2>&1 || true
+  # rm can race the restart policy (restart-vs-remove wins nondeterministically):
+  # retry until the container object is genuinely gone, else a stopped orphan
+  # lingers with state=retired and its frozen monitor pane holds a grid spot.
+  local try
+  for try in 1 2 3; do
+    docker rm "$c" >/dev/null 2>&1 || true
+    docker ps -a --filter "name=^${c}$" --format '{{.Names}}' | grep -q . || break
+    sleep 2
+  done
   [ -f "$ENGAGE_REG/$tag.env" ] && mv "$ENGAGE_REG/$tag.env" "$dest/"
   bash "$STACK/up.sh" >/dev/null 2>&1 || true
   bash "$STACK/kali-mon.sh" --remove "$c" >/dev/null 2>&1 || true

@@ -95,10 +95,12 @@ prune_panes() {
     present=$(panes_of_session '#{pane_title}' | grep -cx "$c" || true)
     [ "${present:-0}" -eq 0 ] && add_pane "$c"
   done < <(docker ps --filter name=eng- --filter status=running --format '{{.Names}}' | sort)
-  # remove panes whose container is gone
+  # remove panes whose container is gone OR not running — a stopped container's
+  # pane is dead weight (frozen frame; the attach client died with the stop) and
+  # must NOT hold a spot. Running containers only: that's what the monitor shows.
   while read -r c; do
     [ -z "$c" ] && continue
-    if ! docker ps -a --filter "name=^${c}$" --format '{{.Names}}' | grep -q .; then
+    if ! docker ps --filter "name=^${c}$" --filter status=running --format '{{.Names}}' | grep -q .; then
       remove_pane "$c"
     fi
   done < <(panes_of_session '#{pane_title}' | sort -u)
