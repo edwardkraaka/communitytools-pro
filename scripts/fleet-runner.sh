@@ -349,8 +349,10 @@ while :; do
 
   # ---- slot accounting + launch -------------------------------------------
   OWNED=$(owned_running)
+  # next queued target — also the slot-pressure trigger below. || true: a
+  # corrupt state file must never kill the runner via command substitution.
+  next_tag=$(jq -r 'select(.status=="queued") | .tag' "$RUN_DIR"/state/*.json 2>/dev/null | head -1 || true)
   if [ "$OWNED" -lt "$SLOTS" ]; then
-    next_tag=$(jq -r 'select(.status=="queued") | .tag' "$RUN_DIR"/state/*.json 2>/dev/null | head -1)
     if [ -n "$next_tag" ]; then
       if [ -z "$ACTIVE_GLUETUN" ]; then
         if ! ACTIVE_GLUETUN=$(pick_gluetun); then
@@ -384,10 +386,14 @@ while :; do
   fi
 
   # ---- retirement under slot pressure -------------------------------------
+  # A parked done target holds its container until a QUEUED target needs the
+  # slot. The old `OWNED > SLOTS` gate was unreachable (the launch gate caps
+  # OWNED at SLOTS, so exactly-full never retired anything and the queue
+  # starved). Empty queue = done targets park until `fleet-runner.sh cleanup`.
   OWNED=$(owned_running)
-  if [ "$OWNED" -gt "$SLOTS" ]; then
+  if [ "$OWNED" -ge "$SLOTS" ] && [ -n "$next_tag" ]; then
     victim=$(for f in "$RUN_DIR"/state/*.json; do
-      jq -r 'select(.status=="done") | "\(.ts.done // "9999") \(.tag)"' "$f" 2>/dev/null
+      jq -r 'select(.status=="done") | "\(.ts.done // "9999") \(.tag)"' "$f" 2>/dev/null || true
     done | sort | head -1 | awk '{print $2}')
     if [ -n "${victim:-}" ]; then
       retire_target "$RUNID" "$victim"
