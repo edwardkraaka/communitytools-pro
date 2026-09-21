@@ -16,11 +16,14 @@
 # invisible to --add/--remove — the duplicate-pane bug), and `-a` ignores
 # -t and lists every pane on the server, session 0 included.
 #
-# Inside:  switch panes = Ctrl-b <arrow> ;  detach = Ctrl-b d
+# Inside:  switch panes = Ctrl-b <arrow> ;  next/prev tab = Ctrl-b n / Ctrl-b p ;  detach = Ctrl-b d
 # To send a key to the INNER claude (nested tmux), press the prefix TWICE: Ctrl-b Ctrl-b <key>
 set -euo pipefail
 S=pentest
-MAXPANES=4
+# Panes per window (a fleet "tab", tiled 2x2). More engagements than this
+# spill into fleet-N windows — flip tabs with Ctrl-b n / Ctrl-b p.
+# MON_MAXPANES env overrides when a different chunking is wanted.
+MAXPANES="${MON_MAXPANES:-4}"
 
 # all windows of session S (see scope rule above)
 panes_of_session() { tmux list-panes -t "$S" -s -F "$1" 2>/dev/null; }
@@ -128,6 +131,7 @@ mapfile -t CS < <(docker ps --filter name=eng- --filter status=running --format 
 tmux kill-session -t "$S" 2>/dev/null || true
 tmux new-session -d -s "$S" -x 250 -y 62 "exec docker exec -it ${CS[0]} tmux attach -t eng"
 tmux select-pane  -t "$S" -T "${CS[0]}"
+tmux rename-window -t "$S:0" fleet-0 >/dev/null 2>&1 || true
 set_session_opts
 w=1; wn=0
 for ((i=1; i<${#CS[@]}; i++)); do
