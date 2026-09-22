@@ -58,6 +58,12 @@ render() {
       "$bytes" "$(jq -r '.last_event // ""' "$f" | cut -c1-50)"
   done
   echo "────────────────────────────────────────────────────────────────────────"
+  # parked/wedge visibility — the stale-class canary line
+  for f in "$RUN_DIR"/state/*.json; do
+    jq -r 'select(.status=="active" or .status=="launched-osint")
+           | select((.park.n // 0) > 0 or .wedge)
+           | "⚠ \(.tag) parked (nudge \(.park.n // 0)/2)\(if .wedge then " — WEDGE seen" else "" end)"' "$f" 2>/dev/null
+  done
   echo "monitor: tmux attach -t pentest   |   log: tail -f $RUN_DIR/fleet.log"
 }
 

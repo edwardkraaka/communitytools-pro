@@ -137,6 +137,11 @@ fi
 echo "[$(ts)] [entrypoint] mode=$MODE cwd=$CWD sid=$SID transcript-bytes=$(bytes_total)"
 
 tmux new-session -d -s "$SESS" -x 220 -y 50 "$START; echo __CLAUDE_EXITED__; sleep 3"
+# wheel-scroll and usable scrollback for the nested session: without mouse on,
+# a scroll in the outer monitor pane only moves the docker-exec wrapper buffer;
+# history-limit 50000 keeps the full engagement transcript reachable via Ctrl-b [
+tmux set -t "$SESS" mouse on
+tmux set -t "$SESS" history-limit 50000
 
 # Wait for the main TUI to be ready (status line shows the permission-mode hint),
 # then submit the first input (kickoff or resume nudge). Two-stage: fast 40x3s
@@ -228,6 +233,12 @@ while tmux has-session -t "$SESS" 2>/dev/null; do
     fi
     if echo "$sig" | grep -qi 'esc to interrupt' && [ "$idle_s" -ge $(( TURN_MIN * 60 )) ]; then
       echo "[$(ts)] [watchdog] TRIP T: in-flight turn silent for ${idle_s}s (>= ${TURN_MIN}m ceiling) — killing for restart"
+      tmux kill-session -t "$SESS" 2>/dev/null; break
+    fi
+    if echo "$sig" | grep -qi 'Not logged in'; then
+      # TRIP A2: deaf-TUI wedge (buyucoin/deepcoin class — input swallowed, TUI alive,
+      # No API-error banner so TRIP A stood down). Restart = mode=resume in ~4min.
+      echo "[$(ts)] [watchdog] TRIP A2: logged-out/dead pane after ${idle_s}s — killing for restart"
       tmux kill-session -t "$SESS" 2>/dev/null; break
     fi
     if [ "$idle_logged" = 0 ]; then
