@@ -242,14 +242,19 @@ osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it
 }
 
 active_artifact() {
+  # 'osint' in the suffix list: an active phase that CONTINUES in the
+  # osint-phase engagement dir (the skill reuses the dir when it reads the
+  # osint reports and stays there) must still count — the tell is a technical
+  # report in reports/, not the directory's suffix. First seen on a live
+  # target whose report sat invisible in an _osint dir for 8h.
   local d sfx base
-  for sfx in active web; do
+  for sfx in active web osint; do
     for d in "$WS" "$WS/projects/pentest"; do
       [ -e "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md; return 0; }
       [ -e "$d"/*_"$1"_"$sfx"/reports/*.pdf 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*.pdf; return 0; }
     done
   done
-  for sfx in active web; do
+  for sfx in active web osint; do
     while IFS= read -r base; do
       [ -z "$base" ] && continue
       for d in "$WS" "$WS/projects/pentest"; do

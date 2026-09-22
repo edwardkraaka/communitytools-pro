@@ -228,10 +228,18 @@ net_progress_s() {  # transcript size + projects-dir mtime for manual stall tria
   echo "$(transcript_bytes "$1") $(stat -c %Y "$KALI_STATE/$1/claude/projects" 2>/dev/null || echo 0)"
 }
 
-fail_target() {  # fail_target <tag> <reason>
+fail_target() {  # fail_target <tag> <reason> — state, then RETIRE the container:
+  # a failed target's container would otherwise run forever (restart: unless-stopped),
+  # holding 6G of memory-gate budget + a monitor pane with nothing left to do.
+  # Findings/workspace stay on disk for manual harvest; only the container and
+  # registry entry are archived. Ownership: the state file in THIS run + the
+  # FLEET_RUN marker on the registry env — manual engagements are never touched.
   local tag=$1; shift
   state_set_status "$RUNID" "$tag" failed "$*"
   log "FAILED  $tag — $*"; fleet_notify "$tag failed: $*"
+  if [ "$(state_get "$RUNID" "$tag" '.tag' 2>/dev/null)" = "$tag" ]      && grep -q "^FLEET_RUN=$RUNID$" "$ENGAGE_REG/$tag.env" 2>/dev/null; then
+    retire_engagement "$tag" "$FLEET_DIR/$RUNID/registry"       && state_set "$RUNID" "$tag" '.status="retired" | .last_event=("failed then retired: "+.last_event)'
+  fi
 }
 
 state_set_status() {  # <runid> <tag> <status> <event> — quote-safe status+event write
@@ -245,6 +253,8 @@ state_set_status() {  # <runid> <tag> <status> <event> — quote-safe status+eve
 attempt_tick() {  # attempt_tick <tag> <reason> — increments attempts; fails at 3
   local tag=$1 n; shift
   n=$(state_get "$RUNID" "$tag" '.attempts + 1')
+  state_set "$RUNID" "$tag" ".attempts = $n"   # PERSIST — was only read, never written:
+  # the live run logged "attempt 1/3" every 12h forever without ever reaching 3.
   update_event "$RUNID" "$tag" "$* (attempt $n/3)"
   [ "$n" -ge 3 ] && { fail_target "$tag" "3 attempts: $*"; return 1; }
   log "RETRY   $tag — $* (attempt $n/3)"
@@ -334,6 +344,28 @@ while :; do
           fleet_notify "$tag: engagement complete (technical report written)"
           continue
         fi
+        # WEDGE FAST-PATH: 'Not logged in' on the status line is the deaf-TUI
+        # signature (buyucoin/deepcoin class — input swallowed, transcript frozen;
+        # correlates with 100% context + subagent storms). Healthy panes never
+        # show it: the entrypoint seeds onboarding so a fresh TUI opens logged-in.
+        # Restart immediately (no 45m wait) but ONLY with static transcript bytes.
+        now_b=$(transcript_bytes "$tag")
+        wedge_b=$(state_get "$RUNID" "$tag" '.wedge.b // -1')
+        if pane_capture "$c" | grep -qi 'Not logged in'; then
+          if [ "$now_b" != "$wedge_b" ]; then
+            # first sighting: arm, wait one poll (30s) to confirm bytes frozen
+            state_set "$RUNID" "$tag" ".wedge = {b:$now_b, at:$(date +%s)}" 2>/dev/null || true
+          elif pane_idle "$c"; then
+            if docker restart "$c" >/dev/null 2>&1; then
+              state_set "$RUNID" "$tag" "del(.wedge) | .park = {b:$now_b, at:$(date +%s), n:0}"
+              log "WEDGE-R $tag — 'Not logged in' pane, restart (resume sid pinned)"
+              fleet_notify "$tag: unwedging (Not-logged-in restart)"
+              continue
+            fi
+          fi
+        elif [ -n "$(state_get "$RUNID" "$tag" '.wedge.b // empty')" ]; then
+          state_set "$RUNID" "$tag" "del(.wedge)" 2>/dev/null || true
+        fi
         # PARKED-SESSION DETECTION: idle prompt + static transcript (main AND
         # subagent bytes — the find covers the whole projects dir) + no report
         # = session finished its work but never flushed it to reports/ (or is
@@ -347,15 +379,35 @@ while :; do
         elif pane_idle "$c"; then
           park_at=$(state_get "$RUNID" "$tag" '.park.at // 0')
           park_n=$(state_get "$RUNID" "$tag" '.park.n // 0')
-          if [ $(( $(date +%s) - ${park_at:-0} )) -gt 2700 ] && [ "${park_n:-0}" -lt 2 ]; then
-            # clear any agents overlay first — nudge text into an overlay is
-            # swallowed ("Enter to view · x to clear" screens)
-            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
-            if docker exec "$c" tmux send-keys -t eng -l -- "Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments." 2>/dev/null; then
-              sleep 1
-              docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
-              state_set "$RUNID" "$tag" ".park.n = ${park_n:-0} + 1 | .park.at = $(date +%s)"
-              log "NUDGE   $tag — idle with static transcript >45m, no report (nudge $((park_n+1))/2)"
+          # ESCALATION LADDER: nudge (x2) → docker restart. The restart is the proven
+          # cure for the wedged-TUI class (deaf pane after 100%-context subagent
+          # storms): entrypoint mode=resume re-arms the pinned session in ~4min.
+          # .ts.injected deliberately NOT reset — the 12h ceiling bounds restart
+          # loops at one ladder pass per injection window.
+          if [ $(( $(date +%s) - ${park_at:-0} )) -gt 2700 ]; then
+            if [ "${park_n:-0}" -lt 2 ]; then
+              # clear any agents overlay first — nudge text into an overlay is
+              # swallowed ("Enter to view · x to clear" screens)
+              pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+              if docker exec "$c" tmux send-keys -t eng -l -- "Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments." 2>/dev/null; then
+                sleep 1
+                docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+                state_set "$RUNID" "$tag" ".park.n = ${park_n:-0} + 1 | .park.at = $(date +%s)"
+                log "NUDGE   $tag — idle with static transcript >45m, no report (nudge $((park_n+1))/2)"
+              fi
+            else
+              # rung 3: both nudges spent, still idle with static bytes — restart.
+              # Never fires mid-turn (we're inside pane_idle) and bytes-static (elif).
+              now_b2=$(transcript_bytes "$tag")
+              if [ "$now_b2" = "$park_b" ]; then
+                if docker restart "$c" >/dev/null 2>&1; then
+                  state_set "$RUNID" "$tag" ".park = {b:$now_b2, at:$(date +%s), n:0}"
+                  log "WEDGE-R $tag — nudges exhausted, container restarting (resume sid pinned)"
+                  fleet_notify "$tag: unwedging (restart after parked nudges)"
+                else
+                  log "WEDGE-R $tag — docker restart FAILED, deferring to 12h ceiling"
+                fi
+              fi
             fi
           fi
         fi
