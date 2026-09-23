@@ -122,6 +122,14 @@ p,w=sys.argv[1],int(sys.argv[2])
 try: d=json.load(open(p))
 except Exception: d={}
 if not isinstance(d,dict): d={}
+# theme + bypass-prompt skip are seeded HERE too (not only on file-missing): a
+# settings.json created by the host-side rollout (autocompact keys only) would
+# otherwise park every fresh launch at the Bypass-Permissions confirmation —
+# claude never starts, the watchdog counts no-growth, breaker opens, loop
+# (the seven Sep-23 stuck launches: kelpdao lombard maple orca paradex
+# raydium renzoprotocol — 5h of burn before caught)
+d["theme"]="dark"
+d["skipDangerousModePermissionPrompt"]=True
 d["autoCompactEnabled"]=True
 d["autoCompactWindow"]=w
 try:
