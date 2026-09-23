@@ -25,6 +25,14 @@ if [ "${1:-}" = "--check" ]; then
   fi
 fi
 
+# Regression gate before any image bake: the exit-status + seeding contracts that
+# burned the fleet Sep 23 (4 same-family bugs). Selftest is read-only against live
+# fleet code; failure = do NOT rebuild until the suite is green.
+if ! bash /root/pentest-stack/fleet-selftest.sh; then
+  echo "[build-eng] fleet-selftest FAILED — refusing to rebuild (fix contracts first)" >&2
+  exit 1
+fi
+
 docker build -t kali-claude-eng:latest -f Dockerfile.eng . | tail -3
 echo "[build-eng] rebuilt kali-claude-eng:latest — running containers keep the old image;"
 echo "[build-eng] recreate (docker-compose up -d --force-recreate eng-<tag>) to pick it up"
