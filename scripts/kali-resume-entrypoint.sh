@@ -105,9 +105,30 @@ fi
 DISALLOWED="EnterPlanMode,EnterWorktree,ExitPlanMode,ExitWorktree,CronList,ListAgents,ScheduleWakeup,TaskList,TaskStop,Workflow"
 
 # --- Seed onboarding-complete config so no first-run wizard ever blocks the TUI. ---
-# settings.json lives inside the persisted ~/.claude volume; write it once.
-mkdir -p "$HOME/.claude"
-[ -f "$HOME/.claude/settings.json" ] || printf '%s\n' '{"theme":"dark","skipDangerousModePermissionPrompt":true}' > "$HOME/.claude/settings.json"
+# settings.json lives inside the persisted ~/.claude volume; MERGE not overwrite (and
+# only-if-missing silently left every fleet session without the compact window below).
+# AUTOCOMPACT: without a configured window the CLI's trigger NEVER arms (window source
+# falls back to "auto" = fire-never; real Anthropic clients get the window from the
+# server bootstrap, the GLM gateway serves none). Status line renders "NN% context
+# used" (disarmed) instead of "NN% until auto-compact". This pinned every fleet session
+# at ~100% context: ~147k-token re-sends per round-trip (p90 latency 4.7 min, one turn
+# 3h+) and the 100%-context deaf-TUI wedge class. 140k on a 200k window = trigger at
+# ~56-63%, halving steady-state payload. The compact itself runs through the gateway
+# (proven live through this gateway, Sep 17). ENG_AUTOCOMPACT_WINDOW env overrides per-entry.
+AUTOCOMPACT_WINDOW="${ENG_AUTOCOMPACT_WINDOW:-140000}"
+python3 - "$HOME/.claude/settings.json" "$AUTOCOMPACT_WINDOW" <<'SEED'
+import json,sys
+p,w=sys.argv[1],int(sys.argv[2])
+try: d=json.load(open(p))
+except Exception: d={}
+if not isinstance(d,dict): d={}
+d["autoCompactEnabled"]=True
+d["autoCompactWindow"]=w
+try:
+    import os; os.makedirs(os.path.dirname(p),exist_ok=True)
+    open(p,"w").write(json.dumps(d,indent=2)+"\n")
+except Exception: pass
+SEED
 # ~/.claude.json lives OUTSIDE the mounted .claude dir (ephemeral per container), so
 # seed it every start: mark global onboarding done + trust this project dir.
 python3 - "$CWD" <<'PY' 2>/dev/null || true

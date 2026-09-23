@@ -420,6 +420,38 @@ while :; do
             state_set "$RUNID" "$tag" ".ts.injected=\"$(date -Is)\""
           fi
         fi
+        # CONTEXT TELEMETRY + (disarmed) MANUAL COMPACT INJECTOR.
+        # Telemetry: pane context % + armed wording + compact count → ctx.csv (the
+        # autocompact rollout's before/after evidence) and state (.ctx/.compact).
+        ctxp=$(pane_context_pct "$c")
+        cmpn=$(compact_count "$tag")
+        echo "$(date '+%F %T'),$tag,$ctxp,$cmpn" >> "$RUN_DIR/ctx.csv" 2>/dev/null || true
+        [ "$cmpn" != "$(state_get "$RUNID" "$tag" '.compact // -1')" ] && \
+          state_set "$RUNID" "$tag" ".compact = $cmpn | .ctx = $ctxp"
+        # Manual injector — FALLBACK ONLY (F1/F2 of the autocompact plan), armed
+        # via FLEET_AUTOCOMPACT_MANUAL=1. Never fires when the pane already shows
+        # "until auto-compact" (armed autocompact = injector off), only at >=90%,
+        # only pane-idle, only when no compact landed in 60m, max 3 per injection
+        # window (12h), with 10m uptake verification + per-tag stand-down.
+        if [ "${FLEET_AUTOCOMPACT_MANUAL:-0}" = 1 ] && [ "$ctxp" -ge 90 ] \
+           && ! pane_autocompact_armed "$c" && pane_idle "$c"; then
+          man_n=$(state_get "$RUNID" "$tag" '.mcompact.n // 0')
+          man_at=$(state_get "$RUNID" "$tag" '.mcompact.at // 0')
+          if [ "$man_n" -lt 3 ] && [ $(( $(date +%s) - ${man_at:-0} )) -gt 3600 ]; then
+            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+            if docker exec "$c" tmux send-keys -t eng -l -- "/compact" 2>/dev/null; then
+              sleep 1; docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+              state_set "$RUNID" "$tag" ".mcompact = {n:$((man_n+1)), at:$(date +%s), b:$cmpn}"
+              log "MCOMPACT $tag — manual /compact injected ($((man_n+1))/3 this window)"
+            fi
+          elif [ "$man_n" -ge 1 ] && [ "$(compact_count "$tag")" = "$(state_get "$RUNID" "$tag" '.mcompact.b // -1')" ] \
+               && [ $(( $(date +%s) - ${man_at:-0} )) -gt 600 ]; then
+            # injected 10m ago, compact count unchanged → the injector path is
+            # not working for this tag: stand down (no more attempts this window)
+            state_set "$RUNID" "$tag" ".mcompact.n = 3"
+            log "MCOMPACT $tag — no compact uptake in 10m, standing down this window"
+          fi
+        fi
         ;;
     esac
   done

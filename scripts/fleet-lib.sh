@@ -9,9 +9,7 @@ FLEET_DIR="$STACK/fleet"
 WS=/root/communitytools/projects/pentest       # = /workspace in containers
 KALI_STATE=/root/kali-state
 ENGAGE_REG="$STACK/engagements"
-# Public IP of THIS host — the VPN-leak guard aborts any launch whose egress
-# equals it. Set via env when deploying (never commit the real value).
-BOX_IP="${FLEET_BOX_IP:?set FLEET_BOX_IP to the deployment host public IP}"
+BOX_IP="${FLEET_BOX_IP:?FLEET_BOX_IP must be set (box IP is redacted in the public repo)}"
 IMAGE=kali-claude-eng:latest
 
 fleet_log() {  # fleet_log <runid> <msg...>
@@ -242,24 +240,45 @@ osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it
 }
 
 active_artifact() {
-  # 'osint' in the suffix list: an active phase that CONTINUES in the
-  # osint-phase engagement dir (the skill reuses the dir when it reads the
-  # osint reports and stays there) must still count — the tell is a technical
-  # report in reports/, not the directory's suffix. First seen on a live
-  # target whose report sat invisible in an _osint dir for 8h.
-  local d sfx base
+  # DONE = a report DELIVERABLE in this tag's engagement reports/ dir:
+  #   (a) any .pdf (renderer output is always the deliverable), or
+  #   (b) an .md report whose name carries 'report' — excluding the osint-phase
+  #       artifacts and process files (CIRs, scope notes, validation, roadmaps,
+  #       skeptic briefs) that also live in reports/.
+  # Filename-class survey across 40+ engagements chose the inclusion pair
+  # (pdf | *report*.md minus exclusion list): the earlier exclusion-ONLY design
+  # matched e17-c1-account-scope-report.md and CIR-device-access.md (interim
+  # artifacts) as DONE markers. Explicit for-loop: multi-file globs must never
+  # hit '[ -e f1 f2 ] too many arguments' (deepcoin's reports/ holds 4 matches).
+  # Suffixes 'active web osint': an active phase continuing in the osint-phase
+  # dir must still count (buyucoin-8h / deepcoin classes).
+  local d sfx base rf bn
   for sfx in active web osint; do
     for d in "$WS" "$WS/projects/pentest"; do
-      [ -e "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*technical*report*.md; return 0; }
-      [ -e "$d"/*_"$1"_"$sfx"/reports/*.pdf 2>/dev/null ] && { echo "$d"/*_"$1"_"$sfx"/reports/*.pdf; return 0; }
+      for rf in "$d"/*_"$1"_"$sfx"/reports/*; do
+        [ -f "$rf" ] || continue
+        bn=$(basename "$rf")
+        case "$bn" in
+          osint_report.md|reconnaissance_report.md|CIR-*|*account-scope*|priority-question*|roadmap*|engagement-validation.md|validation.md|skeptic-*) continue ;;
+          *.pdf) echo "$rf"; return 0 ;;
+          *report*.md) echo "$rf"; return 0 ;;
+        esac
+      done
     done
   done
   for sfx in active web osint; do
     while IFS= read -r base; do
       [ -z "$base" ] && continue
       for d in "$WS" "$WS/projects/pentest"; do
-        [ -e "$d/$base"/reports/*technical*report*.md ] && { echo "$d/$base"/reports/*technical*report*.md; return 0; }
-        [ -e "$d/$base"/reports/*.pdf ] && { echo "$d/$base"/reports/*.pdf; return 0; }
+        for rf in "$d/$base"/reports/*; do
+          [ -f "$rf" ] || continue
+          bn=$(basename "$rf")
+          case "$bn" in
+            osint_report.md|reconnaissance_report.md|CIR-*|*account-scope*|priority-question*|roadmap*|engagement-validation.md|validation.md|skeptic-*) continue ;;
+            *.pdf) echo "$rf"; return 0 ;;
+            *report*.md) echo "$rf"; return 0 ;;
+          esac
+        done
       done
     done < <(tag_engagement_dirs "$1" "_$sfx")
   done
@@ -292,6 +311,32 @@ pane_idle() {  # no in-flight turn, no error park
 
 pane_error_parked() {
   pane_capture "$1" | grep -qiE 'API Error|Unable to connect|Retrying'
+}
+
+# --- context/CMP observability: the autocompact rollout's eyes ----------------------
+# Status-line wording IS the armed-state indicator (v2.1.197 binary): a configured
+# window renders "NN% until auto-compact" (armed), unconfigured renders
+# "NN% context used" (trigger disarmed = the pre-2026-09-23 fleet default, the
+# 100%-context saturation root cause).
+pane_context_pct() {  # <container> → prints 0-100 (0 = not visible/no percent shown).
+  # `|| true` is load-bearing: grep-nomatch under pipefail would otherwise kill
+  # every set -e caller the moment a pane renders no percentage (mid-turn, fresh
+  # start) — the same trap that truncated fleet-metrics.sh's early rows.
+  local m
+  m=$(pane_capture "$1" | grep -oE '[0-9]+% (context used|until auto-compact)' | grep -oE '^[0-9]+' | tail -1 || true)
+  echo "${m:-0}"
+  return 0
+}
+
+pane_autocompact_armed() {  # <container> → 0 if armed ("until auto-compact" rendered)
+  pane_capture "$1" | grep -q 'until auto-compact'
+}
+
+compact_count() {  # <tag> → number of compact summaries across ALL its session files;
+  # never nonzero/never kills set -e callers (awk END prints a number regardless).
+  { grep -h -c '"isCompactSummary":true' "$KALI_STATE/$1"/claude/projects/*/*.jsonl 2>/dev/null || true; } \
+    | awk '{s+=$1} END{print s+0}'
+  return 0
 }
 
 # inject_stage2 <container> <message> — the entrypoint's two-phase submission

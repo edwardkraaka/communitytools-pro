@@ -34,9 +34,9 @@ fi
 render() {
   clear 2>/dev/null || true
   echo "═══ fleet run: $(basename "$RUN_DIR") ═══ $(date '+%F %T')"
-  printf '%-14s %-14s %-9s %-10s %8s %8s %9s  %s\n' \
-    "TAG" "STATUS" "DOCKER" "AGE" "OSINT-h" "ACT-h" "BYTES-Δ" "LAST EVENT"
-  local f tag st c age1 age2 bytes runalive agestr
+  printf '%-14s %-14s %-9s %-10s %8s %8s %4s %4s %9s  %s\n' \
+    "TAG" "STATUS" "DOCKER" "AGE" "OSINT-h" "ACT-h" "CTX%" "CMP" "BYTES-Δ" "LAST EVENT"
+  local f tag st c age1 age2 bytes runalive agestr ctxp cmpn
   for f in "$RUN_DIR"/state/*.json; do
     [ -f "$f" ] || continue
     tag=$(jq -r .tag "$f"); st=$(jq -r .status "$f")
@@ -51,10 +51,17 @@ render() {
     bytes=$(transcript_bytes "$tag" 2>/dev/null)
     if [ "$age1" = 999999999 ]; then agestr="-"; else
       agestr=$(printf '%dd%02dh' $((age1/86400)) $(((age1%86400)/3600))); fi
-    printf '%-14s %-14s %-9s %-10s %8s %8s %9s  %s\n' \
+    # CTX/CMP from state (runner telemetry writes them each poll); live pane read
+    # only when the container runs AND the state fields are absent (manual sanity)
+    ctxp=$(jq -r '.ctx // "-" ' "$f"); cmpn=$(jq -r '.compact // "-"' "$f")
+    if [ "$st" = "active" ] && [ "$runalive" = "up" ] && [ "$ctxp" = "-" ]; then
+      ctxp=$(pane_context_pct "$c"); [ "$ctxp" = "0" ] && ctxp=-
+    fi
+    printf '%-14s %-14s %-9s %-10s %8s %8s %4s %4s %9s  %s\n' \
       "$tag" "$st" "$runalive" "$agestr" \
       "$( [ "$age1" = 999999999 ] && echo - || echo $((age1/3600)) )" \
       "$( [ "$age2" = 999999999 ] && echo - || echo $((age2/3600)) )" \
+      "$ctxp" "$cmpn" \
       "$bytes" "$(jq -r '.last_event // ""' "$f" | cut -c1-50)"
   done
   echo "────────────────────────────────────────────────────────────────────────"
@@ -64,6 +71,8 @@ render() {
            | select((.park.n // 0) > 0 or .wedge)
            | "⚠ \(.tag) parked (nudge \(.park.n // 0)/2)\(if .wedge then " — WEDGE seen" else "" end)"' "$f" 2>/dev/null
   done
+  jq -r 'select(.status=="active") | select((.ctx // 0) >= 90) |
+         "⚠ \(.tag) at \(.ctx)% context (\(.compact // 0) compacts)"' "$RUN_DIR"/state/*.json 2>/dev/null
   echo "monitor: tmux attach -t pentest   |   log: tail -f $RUN_DIR/fleet.log"
 }
 
