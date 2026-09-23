@@ -240,6 +240,8 @@ fail_target() {  # fail_target <tag> <reason> — state, then RETIRE the contain
   if [ "$(state_get "$RUNID" "$tag" '.tag' 2>/dev/null)" = "$tag" ]      && grep -q "^FLEET_RUN=$RUNID$" "$ENGAGE_REG/$tag.env" 2>/dev/null; then
     retire_engagement "$tag" "$FLEET_DIR/$RUNID/registry"       && state_set "$RUNID" "$tag" '.status="retired" | .last_event=("failed then retired: "+.last_event)'
   fi
+  return 0   # ownership-guard MISS (no FLEET_RUN marker, e.g. registry entry from a
+             # failed launch) must not become the caller's exit status under set -e
 }
 
 state_set_status() {  # <runid> <tag> <status> <event> — quote-safe status+event write
@@ -256,7 +258,13 @@ attempt_tick() {  # attempt_tick <tag> <reason> — increments attempts; fails a
   state_set "$RUNID" "$tag" ".attempts = $n"   # PERSIST — was only read, never written:
   # the live run logged "attempt 1/3" every 12h forever without ever reaching 3.
   update_event "$RUNID" "$tag" "$* (attempt $n/3)"
-  [ "$n" -ge 3 ] && { fail_target "$tag" "3 attempts: $*"; return 1; }
+  # `if` not `&&`: a plain `... && {...}` returns 1 at cap, and as the last
+  # statement its rc propagates to every set -e CALLER (killed the runner at
+  # kelpdao's 3rd failure Sep 23 — main loop died, 18 queued targets froze)
+  if [ "$n" -ge 3 ]; then
+    fail_target "$tag" "3 attempts: $*" || true
+    return 0
+  fi
   log "RETRY   $tag — $* (attempt $n/3)"
   return 0
 }
