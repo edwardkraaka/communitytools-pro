@@ -297,13 +297,18 @@ while :; do
           fi
           continue
         fi
-        # timeout ceiling
+        # timeout ceiling — a LANDED ARTIFACT outranks the ceiling: fall through
+        # to the artifact branch below instead of `continue`-ing past it (Sep 23:
+        # maple/orca reports landed ~10m past 6h and the unconditional continue
+        # froze both in launched-osint with a finished report in hand)
         if [ "$(ts_age_s "$(state_get "$RUNID" "$tag" '.ts.launched')")" -gt $((OSINT_TIMEOUT_H*3600)) ]; then
-          if pane_idle "$c" && [ -z "$(osint_artifact "$tag")" ]; then
-            attempt_tick "$tag" "osint timeout ${OSINT_TIMEOUT_H}h reached (idle, no artifact)" && { :; }
-            state_set "$RUNID" "$tag" ".ts.launched=\"$(date -Is)\""  # window resets on retry
+          if [ -z "$(osint_artifact "$tag")" ]; then
+            if pane_idle "$c"; then
+              attempt_tick "$tag" "osint timeout ${OSINT_TIMEOUT_H}h reached (idle, no artifact)" || true
+              state_set "$RUNID" "$tag" ".ts.launched=\"$(date -Is)\""  # window resets on retry
+            fi
+            continue
           fi
-          continue
         fi
         # artifact landed? then wait for idle and inject stage 2
         art=$(osint_artifact "$tag")

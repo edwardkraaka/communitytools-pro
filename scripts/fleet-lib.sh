@@ -218,8 +218,15 @@ tag_engagement_dirs() {  # <tag> <suffix> (e.g. _osint) → unique dir basenames
     [ -f "$f" ] || continue
     grep -o '"cwd":"[^"]*"' "$f" 2>/dev/null | cut -d'"' -f4
   done | sort -u | while IFS= read -r d; do
-    case "$d" in /workspace/*"$2") printf '%s\n' "${d##*/}" ;; esac
-  done
+    # WALK UP from recorded cwds: sessions mostly record SUBdir cwds (…/recon/repos)
+    # that don't end in the suffix, and may truncate the tag in the dir name —
+    # renzoprotocol's finished report was invisible to both matchers (Sep 23).
+    case "$d" in /workspace/*) ;; *) continue ;; esac
+    while [ -n "$d" ]; do
+      case "$d" in *"$2") printf '%s\n' "${d##*/}"; break ;; esac
+      d="${d%/*}"
+    done
+  done | sort -u
   return 0
 }
 

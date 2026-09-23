@@ -8,6 +8,9 @@
 #   3. attempt_tick at cap returns 0 under set -e                          (bug: runner main-loop kill)
 #   4. fail_target ownership-miss returns 0 under set -e                   (bug: runner main-loop kill)
 #   5. entrypoint settings seed produces ALL FOUR keys on a partial file   (bug: bypass-prompt wipe)
+#   6. artifact detection resolves truncated dir names + subdir-only cwds  (bug: renzo stuck post-report)
+#   7. runner timeout block falls THROUGH to the artifact branch when a
+#      report exists (bug: maple/orca frozen past the 6h ceiling)
 set -uo pipefail   # NOT -e: the suite itself must run every check
 PASS=0; FAIL=0
 ok()  { echo "  PASS $1"; PASS=$((PASS+1)); }
@@ -99,6 +102,59 @@ sys.exit(0 if need.issubset(d) else 1)
 sed -n '/<<'"'"'SEED'"'"'/,/^SEED$/p' "/root/pentest-stack/kali-resume-entrypoint.sh" | grep -q 'skipDangerousModePermissionPrompt' \
   && ok "entrypoint SEED block still seeds bypass-prompt skip" || bad "entrypoint SEED block lost the bypass-prompt key"
 rm -rf "$SD"
+
+# ------------------------------------------- 6. artifact matching (renzo class)
+note "6. osint_artifact resolves truncated names + subdir-only cwds"
+TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/ws/projects/pentest"
+mkdir -p "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports"
+echo done > "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports/osint_report.md"
+mkdir -p "$TD/kstate/renzoprotocol/claude/projects/-workspace"
+# only a SUBDIR cwd is recorded, and the tag is truncated in the dir name —
+# the two conditions that hid renzoprotocol's finished report on Sep 23
+printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_renzo_osint/recon/repos"}' \
+  > "$TD/kstate/renzoprotocol/claude/projects/-workspace/sid.jsonl"
+OUT=$(KALI_STATE="$TD/kstate" WS="$TD/ws" bash -c \
+  "source /root/pentest-stack/fleet-lib.sh; osint_artifact renzoprotocol")
+[ -n "$OUT" ] && ok "truncated-name + subdir-cwd artifact found ($OUT)" \
+               || bad "artifact invisible under truncated name / subdir cwd"
+rm -rf "$TD"
+
+# ------------------------------------------- 7. timeout fall-through (maple/orca class)
+note "7. runner timeout block: artifact outranks the 6h ceiling"
+# Behavioral: extract the OSINT timeout block, wrap it in a loop, stub the
+# helpers. A landed artifact must NOT hit the continue (falls through to the
+# injection branch below); a missing artifact must keep the continue gate.
+TD=$(mktemp -d)
+awk '/# timeout ceiling/ && !done {p=1} p {print} p && /^        fi$/ {done=1; exit}' \
+  /root/pentest-stack/fleet-runner.sh > "$TD/block.sh"
+grep -q 'osint_artifact' "$TD/block.sh" || bad "timeout gate lost its osint_artifact check"
+grep -qE '^[[:space:]]*continue$' "$TD/block.sh" || bad "extraction lost the continue line"
+mk_case() {  # $1 = what osint_artifact yields: a path, or empty
+  cat > "$TD/case.sh" <<'J'
+RUNID=test; tag=mocktag; c=mockc; OSINT_TIMEOUT_H=6
+ts_age_s() { echo 99999; }
+state_get() { echo x; }
+pane_idle() { return 0; }
+osint_artifact() { printf '%s' "$ART"; }
+attempt_tick() { return 0; }
+state_set() { return 0; }
+J
+  echo "REACHED=0; ITER=0" >> "$TD/case.sh"
+  echo 'while [ $ITER -lt 2 ]; do' >> "$TD/case.sh"
+  echo '  ITER=$((ITER+1))' >> "$TD/case.sh"
+  cat "$TD/block.sh" >> "$TD/case.sh"
+  echo '  REACHED=1' >> "$TD/case.sh"
+  echo '  break' >> "$TD/case.sh"
+  echo 'done' >> "$TD/case.sh"
+  echo 'echo "ITER=$ITER REACHED=$REACHED"' >> "$TD/case.sh"
+}
+mk_case "/tmp/fake_report.md"
+R=$(ART="/tmp/fake_report.md" bash "$TD/case.sh" 2>&1)
+case "$R" in *REACHED=1*) ok "artifact landed: falls through to injection (no freeze)";; *) bad "artifact landed but continue fired anyway (maple/orca freeze): $R";; esac
+mk_case ""
+R=$(ART="" bash "$TD/case.sh" 2>&1)
+case "$R" in *REACHED=0*) ok "no artifact: timeout continue gates as designed";; *) bad "no-artifact path lost its continue: $R";; esac
+rm -rf "$TD"
 
 echo "────────"
 echo "selftest: $PASS passed, $FAIL failed"
