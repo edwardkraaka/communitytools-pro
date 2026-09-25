@@ -19,6 +19,12 @@ PKG="${1:?usage: apk-pipeline.sh <package.name> [output-dir]}"
 OUT="${2:-./engagement/${PKG}}"
 APKEDITOR_JAR="${APKEDITOR_JAR:-/opt/APKEditor.jar}"
 mkdir -p "$OUT/raw"
+# apkeep's F-Droid source builds AND extracts its package index under $TMPDIR; the
+# kali-claude image exports TMPDIR=/workspace/.tmp, which only exists under the fleet
+# entrypoint (a dangling TMPDIR aborts at "Could not create temporary directory", and
+# mktemp -d would trip over the same dangling dir). Fall back to /tmp — absolute and
+# container-local, which both index steps handle — so plain `docker run` works.
+if [ -n "${TMPDIR:-}" ] && [ ! -d "$TMPDIR" ]; then TMPDIR=/tmp; export TMPDIR; fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
 for t in apkeep jadx apktool; do
