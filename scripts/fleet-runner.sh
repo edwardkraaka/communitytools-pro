@@ -260,7 +260,7 @@ attempt_tick() {  # attempt_tick <tag> <reason> — increments attempts; fails a
   update_event "$RUNID" "$tag" "$* (attempt $n/3)"
   # `if` not `&&`: a plain `... && {...}` returns 1 at cap, and as the last
   # statement its rc propagates to every set -e CALLER (killed the runner at
-  # kelpdao's 3rd failure Sep 23 — main loop died, 18 queued targets froze)
+  # one target's 3rd failure Sep 23 — main loop died, 18 queued targets froze)
   if [ "$n" -ge 3 ]; then
     fail_target "$tag" "3 attempts: $*" || true
     return 0
@@ -299,7 +299,7 @@ while :; do
         fi
         # timeout ceiling — a LANDED ARTIFACT outranks the ceiling: fall through
         # to the artifact branch below instead of `continue`-ing past it (Sep 23:
-        # maple/orca reports landed ~10m past 6h and the unconditional continue
+        # two engagements' reports landed ~10m past 6h and the unconditional continue
         # froze both in launched-osint with a finished report in hand)
         if [ "$(ts_age_s "$(state_get "$RUNID" "$tag" '.ts.launched')")" -gt $((OSINT_TIMEOUT_H*3600)) ]; then
           if [ -z "$(osint_artifact "$tag")" ]; then
@@ -358,7 +358,7 @@ while :; do
           continue
         fi
         # WEDGE FAST-PATH: 'Not logged in' on the status line is the deaf-TUI
-        # signature (buyucoin/deepcoin class — input swallowed, transcript frozen;
+        # signature (Sep-23 deaf-TUI class — input swallowed, transcript frozen;
         # correlates with 100% context + subagent storms). Healthy panes never
         # show it: the entrypoint seeds onboarding so a fresh TUI opens logged-in.
         # Restart immediately (no 45m wait) but ONLY with static transcript bytes.

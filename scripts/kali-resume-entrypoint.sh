@@ -126,8 +126,7 @@ if not isinstance(d,dict): d={}
 # settings.json created by the host-side rollout (autocompact keys only) would
 # otherwise park every fresh launch at the Bypass-Permissions confirmation —
 # claude never starts, the watchdog counts no-growth, breaker opens, loop
-# (the seven Sep-23 stuck launches: kelpdao lombard maple orca paradex
-# raydium renzoprotocol — 5h of burn before caught)
+# (the seven Sep-23 stuck launches — 5h of burn before caught)
 d["theme"]="dark"
 d["skipDangerousModePermissionPrompt"]=True
 d["autoCompactEnabled"]=True
@@ -295,7 +294,7 @@ while tmux has-session -t "$SESS" 2>/dev/null; do
       tmux kill-session -t "$SESS" 2>/dev/null; break
     fi
     if echo "$sig" | grep -qi 'Not logged in'; then
-      # TRIP A2: deaf-TUI wedge (buyucoin/deepcoin class — input swallowed, TUI alive,
+      # TRIP A2: deaf-TUI wedge (Sep-23 stuck-launch class — input swallowed, TUI alive,
       # No API-error banner so TRIP A stood down). Restart = mode=resume in ~4min.
       echo "[$(ts)] [watchdog] TRIP A2: logged-out/dead pane after ${idle_s}s — killing for restart"
       tmux kill-session -t "$SESS" 2>/dev/null; break
