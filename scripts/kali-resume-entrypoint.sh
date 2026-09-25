@@ -152,6 +152,36 @@ e.update({"hasTrustDialogAccepted":True,"hasCompletedProjectOnboarding":True,
 json.dump(d,open(p,"w"))
 PY
 
+# --- MCP servers: state-dir override > image default (added Sep 25 2026) ----------
+# Enables context7 (docs lookup MCP) in engagement containers. The gateway now
+# normalizes tool schemas server-side (router patch 2026-09-25), so MCP tools no
+# longer poison requests — this merge merely registers servers in the ephemeral
+# ~/.claude.json (user scope). Precedence: /home/claude/.claude/mcp-servers.json
+# (state bind, per-engagement) wins when present — {"mcpServers":{}} opts out;
+# else the image default /opt/mcp-default.json (context7). Failure to merge is
+# non-fatal (same class as the onboarding seed above): worst case = no MCP tools.
+if [ -f "$HOME/.claude/mcp-servers.json" ]; then
+  MCP_SEED="$HOME/.claude/mcp-servers.json"
+elif [ -f /opt/mcp-default.json ]; then
+  MCP_SEED="/opt/mcp-default.json"
+fi
+if [ -n "${MCP_SEED:-}" ]; then
+  python3 - "$CWD" "$MCP_SEED" <<'MCPMERGE' 2>/dev/null || true
+import json,os,sys
+cwd,seed_path=sys.argv[1],sys.argv[2]
+p=os.path.expanduser("~/.claude.json")
+try: d=json.load(open(p))
+except Exception: d={}
+if not isinstance(d,dict): d={}
+try: s=json.load(open(seed_path))
+except Exception: s={}
+mcps=s.get("mcpServers")
+if isinstance(mcps,dict) and mcps:
+    d["mcpServers"]=mcps   # seed file = sole authority (replace, not merge)
+    json.dump(d,open(p,"w"))
+MCPMERGE
+fi
+
 # --- Fresh vs resume: does this session id already have a transcript on the volume? ---
 # Force the gateway-valid model on resume: old conversations carry the model name
 # they were PINNED to (e.g. "glm-5.3", removed from the gateway ~Sep 13 2026). A resumed

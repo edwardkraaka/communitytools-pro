@@ -156,6 +156,60 @@ R=$(ART="" bash "$TD/case.sh" 2>&1)
 case "$R" in *REACHED=0*) ok "no artifact: timeout continue gates as designed";; *) bad "no-artifact path lost its continue: $R";; esac
 rm -rf "$TD"
 
+# ------------------------------------------- 8. MCP seed merge (context7 rollout)
+note "8. MCP registration merge: state override > image default, opt-out, non-fatal"
+# 8a. grep pins: the entrypoint carries the merge block with both precedence lines
+grep -q "MCPMERGE" "$STACK/kali-resume-entrypoint.sh" \
+  && grep -q 'MCP_SEED="$HOME/.claude/mcp-servers.json"' "$STACK/kali-resume-entrypoint.sh" \
+  && grep -q 'MCP_SEED="/opt/mcp-default.json"' "$STACK/kali-resume-entrypoint.sh" \
+  && grep -q "mcp-default.json" "$STACK/Dockerfile.eng" \
+  && ok "entrypoint merge block + Dockerfile COPY pinned" \
+  || bad "MCP merge wiring incomplete (entrypoint precedence lines / Dockerfile COPY)"
+python3 -c "import json;d=json.load(open('$STACK/mcp-default.json'));assert 'mcpServers' in d" \
+  && ok "mcp-default.json is valid JSON with mcpServers" \
+  || bad "mcp-default.json missing or malformed"
+# 8b. behavioral: extract the entrypoint's python block VERBATIM and run the 4 cases
+TD=$(mktemp -d)
+MCPC=$(awk '/<<.MCPMERGE./ {p=1; next} /^MCPMERGE$/ {p=0} p' "$STACK/kali-resume-entrypoint.sh")
+[ -n "$MCPC" ] || bad "could not extract MCPMERGE python block"
+run_probe() {  # $1=faux-HOME, $2=seed-file — runs the entrypoint's python verbatim
+  HOME="$1" python3 - "/workspace" "$2" <<PYE
+$MCPC
+PYE
+}
+mkdir -p "$TD/home/.claude" "$TD/img"
+printf '%s\n' '{"mcpServers":{"img-default":{"type":"http","url":"https://img.example/mcp"}}}' > "$TD/img/mcp-default.json"
+# case 1: state file present -> sole authority (must replace a stale image default)
+printf '%s\n' '{"mcpServers":{"stale-img":{"type":"http","url":"https://old.example/mcp"}}}' > "$TD/home/.claude.json"
+printf '%s\n' '{"mcpServers":{"state-only":{"type":"http","url":"https://state.example/mcp"}}}' > "$TD/home/.claude/mcp-servers.json"
+run_probe "$TD/home" "$TD/home/.claude/mcp-servers.json"
+R=$(python3 -c "import json;print(sorted(json.load(open('$TD/home/.claude.json'))['mcpServers']))" 2>/dev/null)
+[ "$R" = "['state-only']" ] && ok "state file wins, stale image default displaced" \
+                          || bad "state-override case wrong: got ${R:-none}"
+# case 2: no state file -> image default registers
+rm "$TD/home/.claude/mcp-servers.json"
+printf '%s\n' '{"hasCompletedOnboarding":true}' > "$TD/home/.claude.json"
+run_probe "$TD/home" "$TD/img/mcp-default.json"
+R=$(python3 -c "import json;print(sorted(json.load(open('$TD/home/.claude.json'))['mcpServers']))" 2>/dev/null)
+[ "$R" = "['img-default']" ] && ok "no state file: image default registers" \
+                          || bad "default case wrong: got ${R:-none}"
+# case 3: opt-out {"mcpServers":{}} must leave nothing behind (and not crash)
+printf '%s\n' '{"mcpServers":{}}' > "$TD/home/.claude/mcp-servers.json"
+printf '%s\n' '{"hasCompletedOnboarding":true}' > "$TD/home/.claude.json"
+run_probe "$TD/home" "$TD/home/.claude/mcp-servers.json"
+R=$(python3 -c "import json;print(json.load(open('$TD/home/.claude.json')).get('mcpServers','ABSENT'))" 2>/dev/null)
+[ "$R" = "ABSENT" ] && ok "opt-out {}: no mcpServers key left behind" \
+                     || bad "opt-out left keys behind: $R"
+# case 4: malformed seed must exit 0 and leave the config file valid
+printf 'not json at all\n' > "$TD/home/.claude/mcp-servers.json"
+printf '%s\n' '{"hasCompletedOnboarding":true}' > "$TD/home/.claude.json"
+run_probe "$TD/home" "$TD/home/.claude/mcp-servers.json"
+RC=$?
+V=$(python3 -c "import json;json.load(open('$TD/home/.claude.json'));print('valid')" 2>/dev/null)
+[ "$RC" = 0 ] && [ "$V" = "valid" ] && ok "malformed seed: non-fatal, config stays valid" \
+                                   || bad "malformed seed broke something (rc=$RC valid=${V:-no})"
+rm -rf "$TD"
+
 echo "────────"
 echo "selftest: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]
