@@ -64,6 +64,7 @@ Skills consumed by the cloud-agent task specifications under [`projects/rfp-3.2/
 | [`cryptography`](cryptography/SKILL.md) | Lattice / AGCD / linear-collapse cryptanalysis, padding oracles, secret-sharing recovery | Custom crypto, structured RSA, oracle exposure |
 | [`reverse-engineering`](reverse-engineering/SKILL.md) | Static analysis of ELF/PE, custom-VM bytecode, callfuscation, MBA deobfuscation | Compiled binary / custom-ISA program-data file |
 | [`mobile-security`](mobile-security/SKILL.md) | Android + iOS VAPT (MASVS/MASTG) — static RE (Flutter AOT, IL2CPP, RN/Hermes, Mach-O/Swift), SAST, dynamic analysis (Frida/objection, TLS-pinning + root/jailbreak bypass), privacy | Mobile APK / AAB / IPA target |
+| [`mobile-app-farm`](mobile-app-farm/SKILL.md) | Batch acquire → decompile → triage of many APKs/IPAs (apkeep/ipatool, no emulator/ADB) → hands decompiled source to `mobile-security` | A list of package/bundle ids to pentest as source, at scale |
 | [`social-engineering`](social-engineering/SKILL.md) | Phishing, pretexting, vishing, physical sec | People-in-scope authorized engagements |
 | [`dfir`](dfir/SKILL.md) | Forensic Sherlocks, network/memory/log analysis, AD attack detection | Defensive / IR / Sherlock challenge |
 | [`firewall-review`](firewall-review/SKILL.md) | Evidence-safe static firewall audit methodology, custom policy checks, and consolidated Excel review specification; runtime separate | Firewall config or rule-review reporting request |
