@@ -82,6 +82,9 @@ shopt -s nullglob
 bundles=( "$OUT"/raw/*.xapk "$OUT"/raw/*.apkm "$OUT"/raw/*.apks )
 apks=( "$OUT"/raw/*.apk )
 APK=""
+# jadx resolves its input path AFTER chdir'ing to its install dir — hand every tool
+# an absolute APK path so a relative OUT doesn't produce a silently-empty jadx tree.
+abs() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }
 if (( ${#bundles[@]} > 0 )); then
   echo "[*] Split bundle detected (${bundles[0]##*/}) — merging to universal APK with APKEditor..."
   if [[ -f "$APKEDITOR_JAR" ]]; then
@@ -99,6 +102,7 @@ elif (( ${#apks[@]} == 1 )); then
 else
   echo "[!] No APK/bundle found after download — aborting." >&2; exit 1
 fi
+APK="$(abs "$APK")"
 echo "[+] Universal APK: $APK"
 sha256sum "$APK" | tee "$OUT/apk.sha256"
 aapt dump badging "$APK" 2>/dev/null | grep -oE "versionName='[^']*'" | head -1 > "$OUT/apk.version" || true
