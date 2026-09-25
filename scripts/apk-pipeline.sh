@@ -49,7 +49,17 @@ gplay_fetch() {
 mirror_fetch() {
   local src="${APKEEP_SOURCE:-apk-pure}"
   echo "[*] Acquiring ${PKG} via apkeep (source: ${src}, no credentials)..."
-  apkeep -a "$PKG" -d "$src" "$OUT/raw"
+  # apkeep's F-Droid index extraction is intermittently flaky upstream
+  # (EFForg/apkeep#240 — "could not be extracted. Please try again"): retry a few
+  # times; a download either lands in $OUT/raw or the attempts are exhausted.
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    apkeep -a "$PKG" -d "$src" "$OUT/raw" && return 0
+    echo "[!] apkeep attempt ${attempt}/5 failed — retrying in ${attempt}0s..." >&2
+    raw_has_artifact && return 0   # partial success (one split landed) is success
+    sleep "${attempt}0"
+  done
+  return 1
 }
 if [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
   gplay_fetch || true
