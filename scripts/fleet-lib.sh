@@ -220,7 +220,7 @@ tag_engagement_dirs() {  # <tag> <suffix> (e.g. _osint) → unique dir basenames
   done | sort -u | while IFS= read -r d; do
     # WALK UP from recorded cwds: sessions mostly record SUBdir cwds (…/recon/repos)
     # that don't end in the suffix, and may truncate the tag in the dir name —
-    # renzoprotocol's finished report was invisible to both matchers (Sep 23).
+    # one engagement's finished report was invisible to both matchers (Sep 23).
     case "$d" in /workspace/*) ;; *) continue ;; esac
     while [ -n "$d" ]; do
       case "$d" in *"$2") printf '%s\n' "${d##*/}"; break ;; esac
@@ -256,9 +256,9 @@ active_artifact() {
   # (pdf | *report*.md minus exclusion list): the earlier exclusion-ONLY design
   # matched e17-c1-account-scope-report.md and CIR-device-access.md (interim
   # artifacts) as DONE markers. Explicit for-loop: multi-file globs must never
-  # hit '[ -e f1 f2 ] too many arguments' (deepcoin's reports/ holds 4 matches).
+  # hit '[ -e f1 f2 ] too many arguments' (one engagement's reports/ holds 4 matches).
   # Suffixes 'active web osint': an active phase continuing in the osint-phase
-  # dir must still count (buyucoin-8h / deepcoin classes).
+  # dir must still count (two separate Sep-23 launch classes).
   local d sfx base rf bn
   for sfx in active web osint; do
     for d in "$WS" "$WS/projects/pentest"; do

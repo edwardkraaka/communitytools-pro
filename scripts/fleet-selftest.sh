@@ -8,9 +8,9 @@
 #   3. attempt_tick at cap returns 0 under set -e                          (bug: runner main-loop kill)
 #   4. fail_target ownership-miss returns 0 under set -e                   (bug: runner main-loop kill)
 #   5. entrypoint settings seed produces ALL FOUR keys on a partial file   (bug: bypass-prompt wipe)
-#   6. artifact detection resolves truncated dir names + subdir-only cwds  (bug: renzo stuck post-report)
+#   6. artifact detection resolves truncated dir names + subdir-only cwds  (bug: one engagement stuck post-report)
 #   7. runner timeout block falls THROUGH to the artifact branch when a
-#      report exists (bug: maple/orca frozen past the 6h ceiling)
+#      report exists (bug: two engagements frozen past the 6h ceiling)
 set -uo pipefail   # NOT -e: the suite itself must run every check
 PASS=0; FAIL=0
 ok()  { echo "  PASS $1"; PASS=$((PASS+1)); }
@@ -47,7 +47,7 @@ fi
 # ---------------------------------------------------------------- 3+4. runner fns
 note "3+4. runner exit contracts (simulated run dir — no live state touched)"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/registry"
-# the kelpdao condition: attempts=2, registry env WITHOUT the FLEET_RUN marker
+# the Sep-23 live condition: attempts=2, registry env WITHOUT the FLEET_RUN marker
 cat > "$TD/state/mocktag.json" <<'J'
 {"tag":"mocktag","url":"https://mock.test","status":"launched-osint",
  "attempts":2,"last_event":"x","ts":{}}
@@ -103,23 +103,27 @@ sed -n '/<<'"'"'SEED'"'"'/,/^SEED$/p' "/root/pentest-stack/kali-resume-entrypoin
   && ok "entrypoint SEED block still seeds bypass-prompt skip" || bad "entrypoint SEED block lost the bypass-prompt key"
 rm -rf "$SD"
 
-# ------------------------------------------- 6. artifact matching (renzo class)
+# ------------------------------------------- 6. artifact matching (truncated-name class)
 note "6. osint_artifact resolves truncated names + subdir-only cwds"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/ws/projects/pentest"
-mkdir -p "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports"
-echo done > "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports/osint_report.md"
-mkdir -p "$TD/kstate/renzoprotocol/claude/projects/-workspace"
+mkdir -p "$TD/ws/projects/pentest/260923_205806_test_osint/reports"
+echo done > "$TD/ws/projects/pentest/260923_205806_test_osint/reports/osint_report.md"
+mkdir -p "$TD/kstate/testclient/claude/projects/-workspace"
 # only a SUBDIR cwd is recorded, and the tag is truncated in the dir name —
-# the two conditions that hid renzoprotocol's finished report on Sep 23
-printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_renzo_osint/recon/repos"}' \
-  > "$TD/kstate/renzoprotocol/claude/projects/-workspace/sid.jsonl"
-OUT=$(KALI_STATE="$TD/kstate" WS="$TD/ws" bash -c \
-  "source /root/pentest-stack/fleet-lib.sh; osint_artifact renzoprotocol")
+# the two conditions that hid the Sep-23 engagement's finished report
+printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_test_osint/recon/repos"}' \
+  > "$TD/kstate/testclient/claude/projects/-workspace/sid.jsonl"
+# NOTE: set the overrides AFTER sourcing — the library reassigns KALI_STATE/WS
+# at load, so an env prefix would be overwritten and the test would silently
+# read the LIVE host state instead of this fixture.
+OUT=$(bash -c "source /root/pentest-stack/fleet-lib.sh; \
+KALI_STATE='$TD/kstate'; WS='$TD/ws'; export KALI_STATE WS; \
+osint_artifact testclient")
 [ -n "$OUT" ] && ok "truncated-name + subdir-cwd artifact found ($OUT)" \
                || bad "artifact invisible under truncated name / subdir cwd"
 rm -rf "$TD"
 
-# ------------------------------------------- 7. timeout fall-through (maple/orca class)
+# ------------------------------------------- 7. timeout fall-through (overrun class)
 note "7. runner timeout block: artifact outranks the 6h ceiling"
 # Behavioral: extract the OSINT timeout block, wrap it in a loop, stub the
 # helpers. A landed artifact must NOT hit the continue (falls through to the
@@ -150,7 +154,7 @@ J
 }
 mk_case "/tmp/fake_report.md"
 R=$(ART="/tmp/fake_report.md" bash "$TD/case.sh" 2>&1)
-case "$R" in *REACHED=1*) ok "artifact landed: falls through to injection (no freeze)";; *) bad "artifact landed but continue fired anyway (maple/orca freeze): $R";; esac
+case "$R" in *REACHED=1*) ok "artifact landed: falls through to injection (no freeze)";; *) bad "artifact landed but continue fired anyway (report-overrun freeze): $R";; esac
 mk_case ""
 R=$(ART="" bash "$TD/case.sh" 2>&1)
 case "$R" in *REACHED=0*) ok "no artifact: timeout continue gates as designed";; *) bad "no-artifact path lost its continue: $R";; esac

@@ -98,7 +98,7 @@ Long-running engagements run in Kali + Claude Code containers that must survive 
 ```bash
 bash scripts/kali-eng.sh <tag> "<kickoff-command>" [country]
 # e.g.
-bash scripts/kali-eng.sh softswiss "/osint softswiss.com"
+bash scripts/kali-eng.sh acme-osint "/osint acme.example"
 ```
 
 Each engagement gets:

@@ -25,6 +25,7 @@ Core tools, methodology, and reporting standards for penetration testing.
 - `reference/playwright-automation.md` - Playwright MCP usage for pentesting
 - `reference/binary-analysis-quickstart.md` - Static analysis for executable files and reverse engineering
 - `reference/web-application-attacks.md` - Web application attack methodology
+- Mobile APK/IPA toolchain (apkeep/jadx/apktool/androguard/APKEditor/ipatool + MobSF) and batch acquisition → see [`../mobile-app-farm/SKILL.md`](../mobile-app-farm/SKILL.md)
 - `formats/transilience-report-style/pentest-report.md` - Finding quality standards, compliance mapping, and pre-delivery checklist
 
 ## Required-at-start tooling (web/API engagements)
