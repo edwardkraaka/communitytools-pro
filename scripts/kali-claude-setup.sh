@@ -78,6 +78,11 @@ RUN apt update -qq && apt install -y -qq python3-pip > /dev/null && \
     pip3 install playwright --break-system-packages --quiet && \
     apt clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
+# Layer 4b: mobile-app-farm toolchain (apkeep/jadx/apktool/androguard/APKEditor/ipatool)
+# Resilient installer — a failed optional download warns instead of breaking the build.
+COPY scripts/install-mobile-toolchain.sh /tmp/install-mobile-toolchain.sh
+RUN bash /tmp/install-mobile-toolchain.sh && rm -f /tmp/install-mobile-toolchain.sh
+
 # Create non-root user BEFORE installing browser (so it goes to claude's home)
 RUN useradd -m -s /bin/bash -G sudo claude && \
     echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
