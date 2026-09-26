@@ -22,6 +22,12 @@ apt-get install -y -qq default-jdk-headless unzip wget ca-certificates ripgrep a
 echo "[toolchain] pip: androguard..."
 pip3 install --break-system-packages --quiet 'androguard==4.1.4' 2>/dev/null || warn "androguard pip install failed"   # pin: unpinned installs drift toward the v5 line
 
+echo "[toolchain] pip: hermes-dec..."
+# Hermes bytecode reading for React-Native bundles (hbc-decompiler / hbc-disassembler).
+# hermes-decomp (Rust) stays OUT of the image: source-built per-target, documented in
+# the react-native-hermes scenario.
+pip3 install --break-system-packages --quiet 'hermes-dec==0.1.7' 2>/dev/null || warn "hermes-dec pip install failed — RN bundle decompilation unavailable"
+
 echo "[toolchain] apkeep ${APKEEP_VER}..."
 case "$ARCH" in
   x86_64) AK="apkeep-x86_64-unknown-linux-gnu" ;;
@@ -58,7 +64,7 @@ fi
 
 apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* 2>/dev/null || true
 echo "[toolchain] done. Present:"
-for t in apkeep jadx apktool adb rg java ipatool; do
+for t in apkeep jadx apktool adb rg java ipatool hbc-decompiler; do
   printf '  %-10s %s\n' "$t" "$(command -v "$t" 2>/dev/null || echo MISSING)"
 done
 [ -f /opt/APKEditor.jar ] && echo "  APKEditor  /opt/APKEditor.jar" || echo "  APKEditor  MISSING"
