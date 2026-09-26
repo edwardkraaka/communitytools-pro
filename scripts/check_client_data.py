@@ -105,7 +105,7 @@ SECRET_PATTERNS = [
 # new platforms can block from the start rather than warn.
 GENERIC_USER = (r"username|users?|you|carlos|kali|claude|root|admin|administrator"
                 r"|public|restricted_user|asterisk|current_user|target|victim|attacker"
-                r"|ubuntu|ec2-user|vagrant|student|htb|svc_[A-Za-z0-9_]*")
+                r"|ubuntu|ec2-user|vagrant|student|htb|mobsf|svc_[A-Za-z0-9_]*")
 
 # Published-by-vendor example values that are documentation, not secrets.
 SECRET_ALLOW = re.compile(
