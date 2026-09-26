@@ -54,10 +54,11 @@ case "$ARCH" in
 esac
 if [ -n "$IT" ] && wget -qO /tmp/ipatool.tgz \
      "https://github.com/majd/ipatool/releases/download/v${IPATOOL_VER}/${IT}"; then
+  # the tarball ships bin/ipatool-<ver>-linux-<arch>, not a file named "ipatool"
   tar -xzf /tmp/ipatool.tgz -C /tmp && \
-    install -m0755 "$(find /tmp -name ipatool -type f | head -1)" /usr/local/bin/ipatool 2>/dev/null \
+    install -m0755 "$(find /tmp/bin -name 'ipatool*' -type f | head -1)" /usr/local/bin/ipatool 2>/dev/null \
     || warn "ipatool extract failed"
-  rm -f /tmp/ipatool.tgz
+  rm -rf /tmp/ipatool.tgz /tmp/bin
 else
   warn "ipatool download failed (iOS acquisition unavailable)"
 fi

@@ -47,6 +47,13 @@ if [[ -z "$KEY" ]]; then
 fi
 
 docker volume create mobsf-data >/dev/null
+# Fresh docker volumes mount root-owned, but the container runs as uid 9901 (mobsf)
+# whose HOME it must mkdir/write — without this chown MobSF dies at startup with
+# "TypeError: ... not NoneType" from get_mobsf_home (one-time, ~1s on an empty volume).
+if [ "$(docker run --rm -v mobsf-data:/hm --entrypoint sh opensecurity/mobile-security-framework-mobsf:latest -c 'stat -c %u /hm' 2>/dev/null)" != "9901" ]; then
+  docker run --rm --user 0 -v mobsf-data:/hm --entrypoint sh opensecurity/mobile-security-framework-mobsf:latest \
+    -c 'chown -R 9901:9901 /hm' || echo "[mobsf-up] chown failed — MobSF may fail to start" >&2
+fi
 docker rm -f mobsf >/dev/null 2>&1 || true
 docker run -d --name mobsf \
   --restart unless-stopped \
