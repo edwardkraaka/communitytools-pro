@@ -13,13 +13,13 @@ Stock-Android (Kotlin/Java + native) SAST methodology. Framework-specific paths 
 Run these to fingerprint and mass-triage, then read the dumped code by hand — automation misses reachability and business logic.
 
 ```bash
-apkid -r app.apk                       # packer/obfuscator/anti-analysis fingerprint (pip install apkid)
+apkid -j app.apk                       # packer/obfuscator/anti-analysis fingerprint (apkid 3.0.0; -j emits JSON)
 # → packed/DexGuard/obfuscated? unpack first: ../../reverse-engineering/reference/scenarios/obfuscation/packed-binaries.md
-docker run --rm -it -p 8000:8000 opensecurity/mobile-security-framework-mobsf:latest  # MobSF: manifest/perm/cert/secret/CVSS + CycloneDX SBOM
+docker run --rm -d -p 127.0.0.1:8000:8000 opensecurity/mobile-security-framework-mobsf@sha256:<digest>  # MobSF (4.5.3): pin a tested digest — :latest moves; stable key via -e MOBSF_API_KEY (see mobile-app-farm)
 jadx -d jadx_out app.apk               # decompile to Java (--deobf if names mangled)
 apktool d -f -o apktool_out app.apk    # smali + decoded resources/manifest
-apkleaks -f app.apk -o apkleaks.txt    # endpoints, S3, API-key regexes
-mobsfscan jadx_out/sources             # Android SAST rules (pip install mobsfscan)
+apkleaks -f app.apk -o apkleaks.txt    # endpoints, S3, API-key regexes (2.6.3 — secondary heuristic; validate candidates)
+mobsfscan jadx_out/sources             # Android SAST rules (1.0.x) — Kotlin/Swift rules moved to semgrep: ids differ from the 0.4.x era, re-baseline
 semgrep --config p/java --config p/kotlin jadx_out/sources
 trufflehog filesystem jadx_out --only-verified ; gitleaks dir jadx_out   # secret breadth
 ```
@@ -29,8 +29,8 @@ trufflehog filesystem jadx_out --only-verified ; gitleaks dir jadx_out   # secre
 ## 2. Manifest triage (MASVS-PLATFORM-1 / MASWE-0028)
 
 ```bash
-aapt dump badging app.apk | grep -E 'launchable|permission'
-aapt dump xmltree app.apk AndroidManifest.xml | grep -iE 'exported|permission|scheme|debuggable|allowBackup'
+aapt2 dump badging app.apk | grep -E 'launchable|permission'
+aapt2 dump xmltree app.apk --file AndroidManifest.xml | grep -iE 'exported|permission|scheme|debuggable|allowBackup'
 ```
 
 | Check | Flag when | ID |
@@ -105,7 +105,7 @@ Flag: `<trust-anchors><certificates src="user"/>` (trusts user CAs → intercept
 apksigner verify --verbose --print-certs app.apk
 ```
 
-- **v1-only (JAR) signature + `minSdk<24`** → **Janus / CVE-2017-13156** (prepend a dex, signature still verifies). Require v2/v3 scheme.
+- **v1-only (JAR) signature + `minSdk<24`** → **Janus / CVE-2017-13156** (prepend a dex, signature still verifies) — a 2017-era issue that only bites old builds; check the `apksigner verify` scheme list before citing (v2/v3 are the modern floor; v3.1 rotation / v4 incremental exist as extras).
 - Debug cert (`CN=Android Debug`) or a known-leaked platform key in a production build.
 
 ## 9. Supply chain / SBOM (MASVS-CODE-3)
