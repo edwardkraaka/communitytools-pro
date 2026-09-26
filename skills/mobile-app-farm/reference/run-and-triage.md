@@ -16,18 +16,30 @@ apkeep --version && jadx --version && apktool --version && androguard --help >/d
 
 ## MobSF — sibling container, not in the image
 
-MobSF is heavy and self-contained, so it runs as its **own container** reached over REST:
+MobSF is heavy and self-contained, so it runs as its **own container** reached over REST. Use the
+repo launcher ([`../../../scripts/mobsf-up.sh`](../../../scripts/mobsf-up.sh)):
 
 ```bash
-docker run --rm -d -p 8000:8000 --name mobsf opensecurity/mobile-security-framework-mobsf:latest
-# API key is printed in the container's startup logs / REST Api Key in settings
-export MOBSF_URL=http://mobsf:8000       # or http://127.0.0.1:8000
-export MOBSF_KEY=<key from mobsf logs>
+bash scripts/mobsf-up.sh            # or: MOBSF_IMAGE=<other-digest> / MOBSF_PORT=8000 overrides
 ```
 
-For the resilient stack, add a persistent `mobsf` service to `/root/pentest-stack` compose so the
-key and container survive restarts. When `MOBSF_URL` is unset the pipeline simply skips MobSF —
-`triage.md` (below) still gives the agent plenty to work with.
+It pins a tested image digest (re-pin deliberately, never `:latest`), keeps scans in the named
+volume `mobsf-data` so they survive re-creation, restarts with the daemon (`unless-stopped`), and
+holds a stable REST key by way of `-e MOBSF_API_KEY`. The container publishes **only the docker0
+bridge IP** (default `172.17.0.1:8000`) — reachable from the host and from default-bridge
+`docker run` hops, yet never from outside the box, which matters because MobSF's web UI is
+unauthenticated. The key resolves from `./.env` (`MOBSF_KEY=`), an explicit argument, or
+`$MOBSF_API_KEY`, and is auto-generated + written back to `.env` when absent (a bare
+`docker run -p 8000:8000` instead publishes an unauthenticated UI on every interface).
+
+Then point the pipeline at it:
+
+```bash
+MOBSF_URL=http://172.17.0.1:8000 MOBSF_KEY=<same key> bash scripts/apk-pipeline.sh com.example.app engagement/com.example.app
+```
+
+When `MOBSF_URL` is unset the pipeline simply skips MobSF — `triage.md` (below) still gives the
+agent plenty to work with.
 
 ## Batch run
 

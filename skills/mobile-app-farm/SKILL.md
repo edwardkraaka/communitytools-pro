@@ -64,9 +64,11 @@ optional `mobile-surface.json` for coverage-mode engagements):
 
 ## Toolchain
 
-`apkeep`, `jadx`, `apktool`, `androguard`, `ripgrep`, `APKEditor.jar`, `ipatool` ship in the
-`kali-claude` image (`scripts/kali-claude-setup.sh`); **MobSF runs as a sibling container** reached
-over its REST API at `MOBSF_URL`. Install/run detail: [`reference/run-and-triage.md`](reference/run-and-triage.md).
+`apkeep`, `jadx`, `apktool`, `androguard`, `ripgrep`, `APKEditor.jar`, `ipatool`, **`hermes-dec`**
+ship in the `kali-claude` image (baked by `scripts/install-mobile-toolchain.sh`, invoked from
+`scripts/kali-claude-setup.sh`); **MobSF runs as a sibling container** launched by
+[`scripts/mobsf-up.sh`](../../scripts/mobsf-up.sh) (digest-pinned, docker0-only binding, stable
+REST key) and reached at `MOBSF_URL`. Install/run detail: [`reference/run-and-triage.md`](reference/run-and-triage.md).
 
 ## Authorization
 

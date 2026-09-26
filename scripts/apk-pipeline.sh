@@ -9,7 +9,8 @@
 #   GOOGLE_PLAY_EMAIL / GOOGLE_PLAY_AAS_TOKEN  — use Google Play instead of APKPure
 #   APKEEP_SOURCE     — override apkeep source (default: apk-pure; or google-play, f-droid)
 #   APKEDITOR_JAR     — path to APKEditor.jar (default: /opt/APKEditor.jar) for split/XAPK merge
-#   MOBSF_URL         — e.g. http://mobsf:8000  (enables MobSF static scan)
+#   MOBSF_URL         — e.g. http://172.17.0.1:8000  (docker0 IP as seen from a default-bridge
+#                       docker-hop container; enables the MobSF static scan — see scripts/mobsf-up.sh)
 #   MOBSF_KEY         — MobSF API key
 #
 # Only run against applications you are authorized to test.
