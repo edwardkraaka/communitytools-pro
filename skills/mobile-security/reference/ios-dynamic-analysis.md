@@ -14,7 +14,7 @@ Runtime instrumentation of an iOS app once the static pass (`ios-static-analysis
 
 | Option | Bring-up | Frida delivery | Trade-off |
 |--------|----------|----------------|-----------|
-| **Jailbroken** (checkm8 SoCs ≤ A11: checkra1n ≤ iOS 14, palera1n iOS 15–18) | tethered/semi-tethered boot | `frida-server` via Sileo/Cydia apt repo `https://build.frida.re` | Full power (any process, kernel-adjacent); JB itself trips detection — pair with a JB-hider. Both ride the checkm8 BootROM exploit (unpatchable, but A12+ SoCs are NOT checkm8-vulnerable — use Corellium there). |
+| **Jailbroken** (checkm8 SoCs ≤ A11: palera1n iOS 15–18; checkra1n is legacy, ≤ iOS 14) | tethered/semi-tethered boot | `frida-server` via Sileo/Cydia apt repo `https://build.frida.re` | Full power (any process, kernel-adjacent); JB itself trips detection — pair with a JB-hider. Both ride the checkm8 BootROM exploit (unpatchable, but A12+ SoCs are NOT checkm8-vulnerable — use Corellium there). |
 | **Non-JB, patched IPA** | re-sign + sideload | `objection patchipa` embeds **frida-gadget** dylib | No JB, but needs a signing identity; gadget loads in-process only (that app). App Store apps must be decrypted first. |
 | **Non-JB, manual gadget** | inject `FridaGadget.dylib`, `ldid -S` / `codesign`, sideload via **Sideloadly / AltStore** | frida-gadget (embedded) | 7-day free-cert expiry (AltStore auto-refresh); more control than objection. |
 | **Corellium** | virtual iOS instance (web) | `frida-server` pre-integrated | No hardware, jailbroken by default, snapshots; paid, and some anti-VM/JB checks fire. |
@@ -22,9 +22,10 @@ Runtime instrumentation of an iOS app once the static pass (`ios-static-analysis
 ```bash
 # Jailbroken: install frida-server via apt repo, then over USB:
 frida-ps -Uai                          # -a running apps, -i installed (get bundle id)
-# Non-JB: patch a decrypted IPA to embed the gadget (objection >=1.11):
+# Non-JB: patch a decrypted IPA to embed the gadget (objection >=1.12; 1.12.5 current, Frida-17 support):
 objection patchipa --source app.ipa --codesign-signature <TEAM_ID>
 ios-deploy -b app-frida-codesigned.ipa # or Sideloadly/AltStore GUI
+# Frida 17: compiled GumJS agents need `import ObjC from 'frida-objc-bridge'` + frida-compile; the CLI -l path keeps the bridges.
 ```
 
 Decrypt App Store binaries first (encrypted `LC_ENCRYPTION_INFO`): `frida-ios-dump` (JB) or `bagbak`. See `ios-static-analysis.md` for decrypt + class-dump.
@@ -62,8 +63,8 @@ objection -g <bundle.id> explore -s "ios sslpinning disable"   # covers NSURLSes
 If custom pinning survives, hook the trust evaluation directly:
 
 ```javascript
-// SecTrustEvaluateWithError -> force trusted
-Interceptor.replace(Module.findExportByName('Security','SecTrustEvaluateWithError'),
+// SecTrustEvaluateWithError -> force trusted (Frida 17 per-module lookup — the two-arg Module.findExportByName form is removed)
+Interceptor.replace(Process.getModuleByName('Security').getExportByName('SecTrustEvaluateWithError'),
   new NativeCallback(function(t, e){ return 1; }, 'int', ['pointer','pointer']));
 ```
 
@@ -141,7 +142,7 @@ Flag PII/tokens/PAN in `NSUserDefaults` plist, WebKit caches, `Cache.db`, or the
 
 ```bash
 xcrun simctl openurl booted "myapp://path?param=payload"   # Simulator
-# device: type into Safari, or `frida`-invoke -[UIApplication openURL:]
+# device: type into Safari, or drive -[UIApplication openURL:options:completionHandler:] from a tiny `frida -l` script
 ```
 
 Hook the handlers to observe raw parameter handling (auth-token-in-URL, unvalidated redirect, injection into a WebView):
