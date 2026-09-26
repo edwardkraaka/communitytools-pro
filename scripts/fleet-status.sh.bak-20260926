@@ -36,14 +36,10 @@ render() {
   echo "═══ fleet run: $(basename "$RUN_DIR") ═══ $(date '+%F %T')"
   printf '%-14s %-14s %-9s %-10s %8s %8s %4s %4s %9s  %s\n' \
     "TAG" "STATUS" "DOCKER" "AGE" "OSINT-h" "ACT-h" "CTX%" "CMP" "BYTES-Δ" "LAST EVENT"
-  local f tag st c age1 age2 bytes runalive agestr ctxp cmpn dsp
+  local f tag st c age1 age2 bytes runalive agestr ctxp cmpn
   for f in "$RUN_DIR"/state/*.json; do
     [ -f "$f" ] || continue
     tag=$(jq -r .tag "$f"); st=$(jq -r .status "$f")
-    # phase-3 visibility: armed targets stay status=active but carry a stitch
-    # marker in the STATUS column (dsp), while st stays pure for comparisons
-    dsp=$st
-    [ -n "$(jq -r '.stage3.dir // empty' "$f")" ] && dsp="$st/stitch"
     c="eng-$tag"
     runalive="-"   # up | stop (exists, parked) | - (removed)
     case "$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)" in
@@ -62,7 +58,7 @@ render() {
       ctxp=$(pane_context_pct "$c"); [ "$ctxp" = "0" ] && ctxp=-
     fi
     printf '%-14s %-14s %-9s %-10s %8s %8s %4s %4s %9s  %s\n' \
-      "$tag" "$dsp" "$runalive" "$agestr" \
+      "$tag" "$st" "$runalive" "$agestr" \
       "$( [ "$age1" = 999999999 ] && echo - || echo $((age1/3600)) )" \
       "$( [ "$age2" = 999999999 ] && echo - || echo $((age2/3600)) )" \
       "$ctxp" "$cmpn" \

@@ -379,42 +379,6 @@ stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path]
   printf 'Use the pentest-engagement skill: run a full active penetration test on %s. %s first, including every validated credential. If this is a crypto/web3 company, blockchain-security coverage is mandatory alongside the web classes. Drive every chain to real impact within RoE per the exploitation mandate: validate any newly discovered credentials single-shot, take injection findings to a bounded exfiltration proof, attempt a shell on every RCE-class finding, drive discovered SSH keys to a single-shot login attempt and wallet keys to a signed-message fund PoC (broadcast nothing, transfer nothing — the signature is the proof), pursue the end goal creatively — shell or box access by any path, admin/SSA access, sqli/data exfiltration, or financial harm — instead of stopping at detection, and quantify funds at risk for financial findings.%s Rules: active testing authorized; reversible writes on self-owned test accounts only; no DoS; no persistence; no credential brute force; egress already routes through the gluetun VPN netns already attached (verify the egress IP; never set up a VPN inside the container). You are running unattended: never wait for input; blockers become CIRs under reports/client-input-requests/. Always finish by writing the technical report in reports/.' "$url" "$where" "$extra"
 }
 
-stage3_message() {  # <url> <tag> <engagement-dir-host-path> — phase-3 stitch mandate
-  # Unattended mandate for the final phase. Lessons baked in: name the engagement
-  # dir EXPLICITLY (a bare "write the report in reports/" lets the model read the
-  # finished phase-2 report as work-complete and no-op), name the deliverable file
-  # EXACTLY (the runner's stitch_artifact gate keys on it), and forbid rewriting
-  # the finished technical report (append-only discipline).
-  local url=$1 tag=$2 dir=$3
-  local wdir="/workspace${dir#$WS}"   # container-side path (/workspace = $WS host-side)
-  printf 'Use the attack-path-stitcher skill: STAGE 3 — FINAL MONETIZATION-PATH TASK on the same engagement (%s). The active pentest phase is COMPLETE — its technical report is final and must NOT be rewritten. This is new work in the existing engagement directory %s. Load the skill by reading /workspace/.claude/skills/attack-path-stitcher/SKILL.md (stitching rules, reference/, and tools/chain-merger.py live there; use the tool where its inputs exist, otherwise build the graph by hand per its schema). Stitch this engagement CONFIRMED single-asset findings into one ranked multi-hop chain demonstrating real end-to-end attacker impact — exactly one of: (1) a finance-adjacent fund-drain path: external entry point, then hops each citing the finding that enables it, ending at treasury/custody/hot-wallet/payment-payout funds, with funds at risk quantified — blockchain money-paths proven by SIGNED MESSAGE ONLY (broadcast nothing, transfer nothing; the signature is the proof); or (2) a monetizable database-exfiltration path: entry point, then hops, ending at the monetizable dataset (PII, credentials, financial records) with a bounded proof sample — at most 3 masked rows per endpoint, never mass extraction. Confirmed hops cite their findings; conditional hops are marked inferred. Rules unchanged: no DoS, no persistence, no brute force, single-shot credential validation, reversible writes on self-owned test accounts only; blockers become CIRs under reports/client-input-requests/. You are running unattended: never wait for input. ALWAYS finish by writing the ranked chain and impact quantification to %s/reports/monetization-chain.md — that exact file is the deliverable.' "$url" "$wdir" "$wdir"
-}
-
-stitch_artifact() {  # <tag> [engagement-dir-host-path] → path or empty; never nonzero
-  # Phase-3 deliverable gate: reports/monetization-chain.md (exact basename).
-  # Deliberately disjoint from active_artifact's pdf|*report* rule — the
-  # phase-2 gate must not fire on the phase-3 deliverable and vice versa
-  # (chain/stitch file names never contain 'report'). Lookup order mirrors the
-  # other matchers: (a) the exact dir the runner recorded at arm time
-  # (.stage3.dir — immune to the brand-vs-tag naming class), (b) any
-  # tag-named engagement dir (suffix-agnostic: stitch work sometimes spawns
-  # *_stitch dirs), (c) brand-named dirs via recorded transcript cwds.
-  local d base f
-  for d in "$2" "$WS" "$WS/projects/pentest"; do
-    [ -n "$d" ] || continue
-    for f in "$d"/reports/monetization-chain.md "$d"/*_"$1"_*/reports/monetization-chain.md; do
-      [ -f "$f" ] && { echo "$f"; return 0; }
-    done
-  done
-  while IFS= read -r base; do
-    [ -z "$base" ] && continue
-    for d in "$WS" "$WS/projects/pentest"; do
-      [ -f "$d/$base/reports/monetization-chain.md" ] && { echo "$d/$base/reports/monetization-chain.md"; return 0; }
-    done
-  done < <(tag_engagement_dirs "$1" "_active")
-  return 0
-}
-
 # ---------------------------------------------------------------- retirement --
 # retire_engagement <tag> [archive-dir] — stop+rm the container, archive the
 # registry entry, sync monitor+compose. No state-machine deps: usable for BOTH

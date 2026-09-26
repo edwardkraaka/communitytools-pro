@@ -11,9 +11,6 @@
 #   6. artifact detection resolves truncated dir names + subdir-only cwds  (bug: one engagement stuck post-report)
 #   7. runner timeout block falls THROUGH to the artifact branch when a
 #      report exists (bug: two engagements frozen past the 6h ceiling)
-#   8. MCP registration merge: state override > image default, opt-out, non-fatal
-#   9. phase-3 stitch: report ARMS the stitch phase; done gates on
-#      reports/monetization-chain.md (disjoint from the phase-2 matcher)
 set -uo pipefail   # NOT -e: the suite itself must run every check
 PASS=0; FAIL=0
 ok()  { echo "  PASS $1"; PASS=$((PASS+1)); }
@@ -50,7 +47,7 @@ fi
 # ---------------------------------------------------------------- 3+4. runner fns
 note "3+4. runner exit contracts (simulated run dir — no live state touched)"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/registry"
-# the kelpdao condition: attempts=2, registry env WITHOUT the FLEET_RUN marker
+# the Sep-23 live condition: attempts=2, registry env WITHOUT the FLEET_RUN marker
 cat > "$TD/state/mocktag.json" <<'J'
 {"tag":"mocktag","url":"https://mock.test","status":"launched-osint",
  "attempts":2,"last_event":"x","ts":{}}
@@ -106,25 +103,27 @@ sed -n '/<<'"'"'SEED'"'"'/,/^SEED$/p' "/root/pentest-stack/kali-resume-entrypoin
   && ok "entrypoint SEED block still seeds bypass-prompt skip" || bad "entrypoint SEED block lost the bypass-prompt key"
 rm -rf "$SD"
 
-# ------------------------------------------- 6. artifact matching (renzo class)
+# ------------------------------------------- 6. artifact matching (truncated-name class)
 note "6. osint_artifact resolves truncated names + subdir-only cwds"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/ws/projects/pentest"
-mkdir -p "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports"
-echo done > "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports/osint_report.md"
-mkdir -p "$TD/kstate/renzoprotocol/claude/projects/-workspace"
+mkdir -p "$TD/ws/projects/pentest/260923_205806_test_osint/reports"
+echo done > "$TD/ws/projects/pentest/260923_205806_test_osint/reports/osint_report.md"
+mkdir -p "$TD/kstate/testclient/claude/projects/-workspace"
 # only a SUBDIR cwd is recorded, and the tag is truncated in the dir name —
-# the two conditions that hid renzoprotocol's finished report on Sep 23
-printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_renzo_osint/recon/repos"}' \
-  > "$TD/kstate/renzoprotocol/claude/projects/-workspace/sid.jsonl"
-# assign AFTER source — the lib sets WS/KALI_STATE unconditionally, so an
-# env-prefix override is clobbered mid-source and the fixture never engages
-# (found while adding check 9; the check previously passed against live data)
-OUT=$(bash -c "source /root/pentest-stack/fleet-lib.sh; WS='$TD/ws'; KALI_STATE='$TD/kstate'; osint_artifact renzoprotocol")
+# the two conditions that hid the Sep-23 engagement's finished report
+printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_test_osint/recon/repos"}' \
+  > "$TD/kstate/testclient/claude/projects/-workspace/sid.jsonl"
+# NOTE: set the overrides AFTER sourcing — the library reassigns KALI_STATE/WS
+# at load, so an env prefix would be overwritten and the test would silently
+# read the LIVE host state instead of this fixture.
+OUT=$(bash -c "source /root/pentest-stack/fleet-lib.sh; \
+KALI_STATE='$TD/kstate'; WS='$TD/ws'; export KALI_STATE WS; \
+osint_artifact testclient")
 [ -n "$OUT" ] && ok "truncated-name + subdir-cwd artifact found ($OUT)" \
                || bad "artifact invisible under truncated name / subdir cwd"
 rm -rf "$TD"
 
-# ------------------------------------------- 7. timeout fall-through (maple/orca class)
+# ------------------------------------------- 7. timeout fall-through (overrun class)
 note "7. runner timeout block: artifact outranks the 6h ceiling"
 # Behavioral: extract the OSINT timeout block, wrap it in a loop, stub the
 # helpers. A landed artifact must NOT hit the continue (falls through to the
@@ -155,7 +154,7 @@ J
 }
 mk_case "/tmp/fake_report.md"
 R=$(ART="/tmp/fake_report.md" bash "$TD/case.sh" 2>&1)
-case "$R" in *REACHED=1*) ok "artifact landed: falls through to injection (no freeze)";; *) bad "artifact landed but continue fired anyway (maple/orca freeze): $R";; esac
+case "$R" in *REACHED=1*) ok "artifact landed: falls through to injection (no freeze)";; *) bad "artifact landed but continue fired anyway (report-overrun freeze): $R";; esac
 mk_case ""
 R=$(ART="" bash "$TD/case.sh" 2>&1)
 case "$R" in *REACHED=0*) ok "no artifact: timeout continue gates as designed";; *) bad "no-artifact path lost its continue: $R";; esac
@@ -213,110 +212,6 @@ RC=$?
 V=$(python3 -c "import json;json.load(open('$TD/home/.claude.json'));print('valid')" 2>/dev/null)
 [ "$RC" = 0 ] && [ "$V" = "valid" ] && ok "malformed seed: non-fatal, config stays valid" \
                                    || bad "malformed seed broke something (rc=$RC valid=${V:-no})"
-rm -rf "$TD"
-
-# --------------------------------------- 9. phase-3 stitch (monetization chain)
-note "9. phase-3 stitch: arm on phase-2 report, done gates on monetization-chain.md"
-TD=$(mktemp -d)
-# fixture: armed dir uses a BRAND name (no tag inside — the naming-miss class),
-# tag dirs in BOTH layouts, plus a transcript-cwd walk-up dir, plus distractors
-# that the OTHER gate must consume (technical_report.md) or ignore (chain file)
-mkdir -p "$TD/ws/proj_active/reports" "$TD/ws/260926_100000_tg_active/reports" \
-         "$TD/ws/projects/pentest/260926_120000_tg_active/reports" \
-         "$TD/ws/projects/pentest/brandco_active/reports" \
-         "$TD/kstate/tg/claude/projects/-workspace"
-echo x > "$TD/ws/proj_active/reports/monetization-chain.md"
-echo x > "$TD/ws/projects/pentest/260926_120000_tg_active/reports/monetization-chain.md"
-echo x > "$TD/ws/projects/pentest/brandco_active/reports/monetization-chain.md"
-echo x > "$TD/ws/260926_100000_tg_active/reports/technical_report.md"
-printf '%s\n' '{"cwd":"/workspace/projects/pentest/brandco_active/recon"}' \
-  > "$TD/kstate/tg/claude/projects/-workspace/sid.jsonl"
-cat > "$TD/probe.sh" <<'J'
-source /root/pentest-stack/fleet-lib.sh
-WS="$1"; KALI_STATE="$2"
-echo "armed:$(stitch_artifact "$3" "$4")"
-echo "tagged:$(stitch_artifact "$3" "")"
-echo "p2:$(active_artifact "$3")"
-echo "empty:$(stitch_artifact no-such-tag "")"
-J
-R=$(bash "$TD/probe.sh" "$TD/ws" "$TD/kstate" tg "$TD/ws/proj_active")
-case "$R" in
-  *armed:*proj_active*monetization-chain.md*) ok "stitch gate: exact armed dir (brand-named)" ;;
-  *) bad "armed-dir lookup missed: $R" ;;
-esac
-case "$R" in
-  *tagged:*monetization-chain.md*) ok "stitch gate: tag dirs + transcript-cwd walk-up" ;;
-  *) bad "tag-dir lookup missed: $R" ;;
-esac
-# disjointness, both directions: phase-2 gate eats its technical_report.md and
-# NEVER the chain file; stitch gate stays empty with no chain anywhere
-case "$R" in
-  *p2:*technical_report.md*) ok "phase-2 gate: own report only" ;;
-  *p2:*) bad "phase-2 gate returned something odd: $R" ;;
-  *) bad "phase-2 gate missed its own report: $R" ;;
-esac
-case "$R" in
-  *p2:*monetization-chain.md*) bad "phase-2 gate fired on the chain deliverable" ;;
-esac
-case "$R" in
-  *empty:|*empty:$'\n'*) ok "stitch gate empty with no chain (never false-fires)" ;;
-  *empty:*) bad "stitch gate false-fired: $R" ;;
-esac
-# stage3_message pins: explicit dir, exact deliverable file, and the STAGE 3 frame
-M=$(bash -c "source /root/pentest-stack/fleet-lib.sh; WS='$TD/ws'; stage3_message https://x.example tg '$TD/ws/proj_active'")
-if printf '%s' "$M" | grep -qF '/workspace/proj_active' \
-   && printf '%s' "$M" | grep -qF 'monetization-chain.md' \
-   && printf '%s' "$M" | grep -qF 'STAGE 3'; then
-  ok "stage3_message names dir + deliverable"
-else
-  bad "stage3_message lost explicit dir/deliverable: ${M:0:120}"
-fi
-# behavioral: the runner's phase-3 block ARMS on a landed report (status stays
-# active, .stage3.dir recorded) and marks done ONLY on the chain file
-P3=$(grep -n '# PHASE 3' /root/pentest-stack/fleet-runner.sh | head -1 | cut -d: -f1)
-WG=$(grep -n '# WEDGE FAST-PATH' /root/pentest-stack/fleet-runner.sh | head -1 | cut -d: -f1)
-[ -n "$P3" ] && [ -n "$WG" ] && [ "$WG" -gt "$P3" ] \
-  || bad "phase-3 block markers not found in runner (P3=$P3 WG=$WG)"
-sed -n "${P3},$((WG-1))p" /root/pentest-stack/fleet-runner.sh > "$TD/block.sh"
-cat > "$TD/case.sh" <<'J'
-source /root/pentest-stack/fleet-lib.sh
-FLEET_DIR="$1"; RUNID=testrun; tag=$2; c=mockc; IDLE_SAMPLE=0
-log() { echo "LOG: $*"; }
-fleet_notify() { :; }
-docker() { return 1; }   # has-session false → mandate-injection branch skipped
-state_init "$RUNID" "$tag" "https://x.example" ""
-state_set "$RUNID" "$tag" '.status="active"'   # the block lives inside `case $st in active)`
-state_set_status() {  # runner-local helper not in fleet-lib — minimal stub
-  jq --arg st "$3" --arg ev "$4" --arg now "$(date -Is)" \
-     '.status=$st | .ts[$st]=$now | .last_event=$ev' "$FLEET_DIR/$RUNID/state/$tag.json" \
-    > "$FLEET_DIR/$RUNID/state/$tag.json.tmp" && mv "$FLEET_DIR/$RUNID/state/$tag.json.tmp" "$FLEET_DIR/$RUNID/state/$tag.json"
-}
-active_artifact() { printf '%s' "$ART"; }
-stitch_artifact() { printf '%s' "$S3"; }
-n=0
-while [ $n -lt 1 ]; do
-  n=$((n+1))
-J
-cat "$TD/block.sh" >> "$TD/case.sh"
-echo 'done' >> "$TD/case.sh"
-# case A: report landed, no chain yet → ARM (status stays active)
-ART="$TD/ws/e_active/reports/technical_report.md" S3="" \
-  bash "$TD/case.sh" "$TD/flt" tg > "$TD/outA" 2>&1
-SA=$(jq -r '.stage3.dir // "MISSING"' "$TD/flt/testrun/state/tg.json" 2>/dev/null)
-ST=$(jq -r '.status' "$TD/flt/testrun/state/tg.json" 2>/dev/null)
-if [ "$SA" = "$TD/ws/e_active" ] && [ "$ST" = "active" ]; then
-  ok "report arms phase 3 (dir recorded, status stays active)"
-else
-  bad "arming failed (stage3.dir=$SA status=$ST): $(cat "$TD/outA")"
-fi
-grep -q 'phase-3 armed' "$TD/outA" || bad "arming log line missing: $(cat "$TD/outA")"
-# case B: chain landed → DONE (through the same block, armed state intact)
-ART="" S3="$TD/ws/e_active/reports/monetization-chain.md" \
-  bash "$TD/case.sh" "$TD/flt" tg > "$TD/outB" 2>&1
-ST=$(jq -r '.status' "$TD/flt/testrun/state/tg.json" 2>/dev/null)
-EV=$(jq -r '.last_event // ""' "$TD/flt/testrun/state/tg.json" 2>/dev/null)
-[ "$ST" = "done" ] && case "$EV" in monetization*) ok "chain file marks done (monetization event)";; *) bad "done but wrong event: $EV";; esac \
-  || bad "chain file did not mark done (status=$ST): $(cat "$TD/outB")"
 rm -rf "$TD"
 
 echo "────────"

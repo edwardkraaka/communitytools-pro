@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# fleet-runner.sh — run a targets file of engagements through the 3-phase chain
-# (OSINT → active pentest → stitch/monetization-chain) across N parallel containers.
+# fleet-runner.sh — run a targets file of engagements through the 2-stage chain
+# (OSINT → active pentest) across N parallel interactive containers.
 #
 #   fleet-runner.sh <targets-file> [options]
 #     --slots N              concurrent fleet-owned containers (default 8)
 #     --osint-timeout-h H    stage-1 wall-clock ceiling   (default 6)
-#     --active-timeout-h H   stage-2 + stage-3 wall-clock ceiling (default 12;
-#                            arming stage 3 resets the window)
+#     --active-timeout-h H   stage-2 wall-clock ceiling   (default 12)
 #     --gluetun NAME         VPN sidecar (default: probe gluetun then gluetun-za)
 #     --launch-interval S    pacing between launches      (default 10)
 #     --idle-sample S        dual idle-sample spacing     (default 90)
@@ -181,8 +180,6 @@ if [ "$DRY_RUN" = 1 ]; then
   echo "── sample stage-2 message:"
   IFS=$'\t' read -r t u i <<< "$(printf '%s\n' "$PARSED" | head -1)"
   stage2_message "$u" "$t" "$i" | fold -sw 100 | sed 's/^/  /'
-  echo "── sample stage-3 message (stitch → reports/monetization-chain.md):"
-  stage3_message "$u" "$t" "$WS/projects/pentest/21000101_000000_${t}_active" | fold -sw 100 | sed 's/^/  /'
   echo "── colliding registry tags would error (pass --allow-collide to suffix); manual 3 never touched."
   exit 0
 fi
@@ -353,60 +350,15 @@ while :; do
           fi
           continue
         fi
-        # PHASE 3 — stitch (attack-path-stitcher): the technical report ends
-        # phase 2, NOT the engagement. Arm the monetization-chain phase on the
-        # dir that produced the report (exact path — immune to the brand-vs-tag
-        # naming misses), open a fresh window (.ts.injected reset), and let the
-        # armed blocks below drive the stitch to reports/monetization-chain.md.
-        # done fires ONLY on the chain file; status stays "active" so the
-        # parked/nudge/wedge ladder below keeps watching phase 3.
         art=$(active_artifact "$tag")
-        if [ -n "$art" ] && [ -z "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')" ]; then
-          s3dir=$(dirname "$(dirname "$art")")
-          f=$(state_file "$RUNID" "$tag")
-          # guarded write: a failed jq on a corrupt state file must not kill the
-          # set -e runner (the Sep-23 class) — arming simply retries next poll
-          if jq --arg d "$s3dir" --arg now "$(date -Is)" \
-             '.stage3={dir:$d, inj:0} | .ts.injected=$now | .last_event="phase-3 armed (stitch)"' \
-             "$f" > "$f.tmp" 2>/dev/null; then
-            mv "$f.tmp" "$f"
-            log "STITCH  $tag — report landed, phase-3 armed (dir: $s3dir)"
-          else
-            rm -f "$f.tmp"; log "STITCH  $tag — state write failed, retry next poll"
-          fi
-        fi
-        s3art=$(stitch_artifact "$tag" "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')")
-        if [ -n "$s3art" ]; then
-          state_set_status "$RUNID" "$tag" done "monetization chain: $s3art"
-          log "DONE    $tag — $s3art"
-          fleet_notify "$tag: engagement complete (monetization chain written)"
+        if [ -n "$art" ]; then
+          state_set_status "$RUNID" "$tag" done "technical report: $art"
+          log "DONE    $tag — $art"
+          fleet_notify "$tag: engagement complete (technical report written)"
           continue
         fi
-        if [ -n "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')" ] \
-           && [ "$(state_get "$RUNID" "$tag" '.stage3.inj // 0')" -lt 2 ]; then
-          # deliver the stitch mandate behind the same dual gate as stage 2:
-          # pane idle + byte-static across the sample window (a busy pane wins
-          # — never injected mid-turn). Cap 2 direct injections; recovery past
-          # that rides the parked-nudge ladder (phase-aware text below) + the
-          # timeout ceiling.
-          if docker exec "$c" tmux has-session -t eng 2>/dev/null; then
-            if pane_idle "$c"; then
-              b1=$(transcript_bytes "$tag")
-              sleep "$IDLE_SAMPLE"
-              b2=$(transcript_bytes "$tag")
-              if pane_idle "$c" && [ "$b1" = "$b2" ]; then
-                msg=$(stage3_message "$(state_get "$RUNID" "$tag" '.url')" "$tag" "$(state_get "$RUNID" "$tag" '.stage3.dir')")
-                if inject_stage2 "$c" "$msg"; then
-                  state_set "$RUNID" "$tag" '.stage3.inj = ((.stage3.inj // 0) + 1)'
-                  log "STITCH  $tag — phase-3 mandate injected"
-                  fleet_notify "$tag: phase-3 stitch mandate delivered"
-                fi
-              fi
-            fi
-          fi
-        fi
         # WEDGE FAST-PATH: 'Not logged in' on the status line is the deaf-TUI
-        # signature (buyucoin/deepcoin class — input swallowed, transcript frozen;
+        # signature (Sep-23 deaf-TUI class — input swallowed, transcript frozen;
         # correlates with 100% context + subagent storms). Healthy panes never
         # show it: the entrypoint seeds onboarding so a fresh TUI opens logged-in.
         # Restart immediately (no 45m wait) but ONLY with static transcript bytes.
@@ -450,11 +402,7 @@ while :; do
               # clear any agents overlay first — nudge text into an overlay is
               # swallowed ("Enter to view · x to clear" screens)
               pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
-              nudge_txt="Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments."
-              if [ -n "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')" ]; then
-                nudge_txt="Continue the stitch task now. Stop exploring — stitch the confirmed findings into the monetization chain and write it to reports/monetization-chain.md immediately."
-              fi
-              if docker exec "$c" tmux send-keys -t eng -l -- "$nudge_txt" 2>/dev/null; then
+              if docker exec "$c" tmux send-keys -t eng -l -- "Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments." 2>/dev/null; then
                 sleep 1
                 docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
                 state_set "$RUNID" "$tag" ".park.n = ${park_n:-0} + 1 | .park.at = $(date +%s)"
@@ -480,13 +428,8 @@ while :; do
         if [ "$(ts_age_s "$(state_get "$RUNID" "$tag" '.ts.injected')")" -gt $((ACTIVE_TIMEOUT_H*3600)) ]; then
           if pane_idle "$c"; then
             attempt_tick "$tag" "active timeout ${ACTIVE_TIMEOUT_H}h reached (idle, no report)" && { :; }
-            # re-nudge on retry — phase-aware (armed targets need the chain, not the report)
-            if [ -n "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')" ]; then
-              re_txt="Continue the stitch task — finish and write reports/monetization-chain.md now."
-            else
-              re_txt="Continue the active engagement — finish and write the technical report in reports/ now."
-            fi
-            docker exec "$c" tmux send-keys -t eng -l -- "$re_txt" 2>/dev/null && sleep 1 && docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+            # re-nudge on retry
+            docker exec "$c" tmux send-keys -t eng -l -- "Continue the active engagement — finish and write the technical report in reports/ now." 2>/dev/null && sleep 1 && docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
             state_set "$RUNID" "$tag" ".ts.injected=\"$(date -Is)\""
           fi
         fi
