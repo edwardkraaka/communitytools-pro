@@ -14,7 +14,7 @@ App Store binaries are **FairPlay-encrypted**: `strings`, `class-dump`, and Ghid
 
 ```bash
 # Acquire (choose one)
-ipatool download -b com.example.app --purchase       # authed App Store pull
+ipatool download --bundle-identifier com.example.app --output app.ipa   # ipatool 2.x syntax (-b/--purchase were 1.x)
 # or Apple Configurator: add app → ~/Library/.../Apps/*.ipa
 unzip -o app.ipa -d app_ipa && ls app_ipa/Payload/*.app
 
@@ -48,7 +48,7 @@ lipo -info <bin> && lipo -thin arm64 <bin> -output bin.arm64   # split a fat bin
 otool -hv bin.arm64            # header + flags (PIE, arch)
 otool -l  bin.arm64            # all load commands (LC_RPATH, LC_LOAD_DYLIB, min-OS)
 rabin2 -I bin.arm64            # radare2 one-shot: arch, pic, canary, crypto, nx, stripped
-jtool2 -l bin.arm64           # jtool2 alternative to otool -l; --sig for code-sig blob
+ipsw macho info bin.arm64     # blacktop/ipsw — current Mach-O one-shot (jtool2 is deprecated)
 
 # ObjC/Swift interface recovery
 class-dump -H -o hdr/ bin.arm64                     # ObjC @interface headers (ObjC-only)
@@ -139,7 +139,7 @@ grep -rniE 'allowFileAccessFromFileURLs|allowUniversalAccessFromFileURLs|loadFil
 
 ```bash
 # MobSF static scan — baseline every IPA, then verify its findings by hand
-docker run -it --rm -p 8000:8000 opensecurity/mobile-security-framework-mobsf:latest
+docker run --rm -d -p 127.0.0.1:8000:8000 opensecurity/mobile-security-framework-mobsf@sha256:<digest>   # pin a tested digest — :latest moves; stable key via -e MOBSF_API_KEY
 # upload the .ipa via the web UI or REST /api/v1/upload+scan
 
 # Embedded framework SBOM (version → CVE mapping via tools/nvd-lookup.py)

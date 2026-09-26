@@ -19,19 +19,21 @@ xxd -l 16 ./bundle/index.android.bundle
 #  └ HBC magic ──────┘ └─ u32 LE bytecode version (0x60 = 96)
 ```
 
-The HBC **version** (the `u32` after the 8-byte magic) sets tool compatibility — RN 0.73.x ⇒ HBC v96, older RN ⇒ lower (84/89/90). `strings libhermes.so | grep -i 'for RN'` confirms the React Native version.
+The HBC **version** (the `u32` after the 8-byte magic) sets tool compatibility — RN 0.73.x ⇒ HBC v96, **RN 0.75+ ⇒ HBC 97+ with a new header layout** that pre-97 parsers misread, older RN ⇒ lower (84/89/90). Read the actual bytes and verify per build — never assume a tool's version ceiling covers the bundle in front of you — and confirm the RN release with `strings libhermes.so | grep -i 'for RN'`.
 
 ## Decompilation toolchain
 
 | Tool | Command | When | Notes |
 |------|---------|------|-------|
-| **hermes-dec** | `hbc-decompiler` / `hbc-disassembler` | primary | `pip3 install hermes-dec` (or `pip3 install git+https://github.com/P1sec/hermes-dec` if the PyPI name doesn't resolve). Version-flexible — decompiles **HBC v96** to readable pseudo-JS; disassembler emits `.hasm` with preserved function names. |
-| **hbctool** | `hbctool disasm` / `asm` | patch/repack | Only when you must *modify + reassemble* the bundle. ⚠ Upstream (bongtrop) tops out around **HBC 84** — v89/v90/v96 asm/disasm need a maintained community fork; verify the installed build's supported versions before repacking a newer bundle. `hermes-dec` stays fine for read-only decompilation of v96. |
+| **hermes-decomp** (SymbioticSec) | `hermes-decomp decompile` / `info` / `versions` | primary | Rust — `git clone https://github.com/SymbioticSec/hermes-decomp && cargo build --release`. v0.2.3 covers **HBC 40–99 → readable JS**, including the post-HBC-97 header layout (≈ RN 0.75+). `info`/`versions` identify a bundle and list supported ranges before you commit to a decompile. |
+| **hermes-dec** (P1sec) | `hbc-decompiler` / `hbc-disassembler` | secondary | `pip3 install hermes-dec` (0.1.7) — in the toolchain image. The *decompiler* emits pseudo-code, not valid JS — always test the output against the bundle's actual behavior; the disassembler emits `.hasm` with preserved function names. |
+| **hbctool** | `hbctool disasm` / `asm` | patch/repack | Only when you must *modify + reassemble* the bundle. ⚠ Upstream tops out around **HBC 84** — v89/90/96/97 asm/disasm need a maintained community fork; verify the installed build's supported versions before repacking a newer bundle. Read-only work stays with hermes-decomp/hermes-dec. |
 | **strings** | `strings -n 6` | fallback | The Hermes string table holds URLs/paths/keys/error messages; reassemble endpoints from it when a decompile is partial. |
 
 ```bash
+hermes-decomp decompile index.android.bundle out.js   # primary: readable JS (build from source once)
 pip3 install hermes-dec || pip3 install git+https://github.com/P1sec/hermes-dec
-hbc-decompiler index.android.bundle decompiled.js     # pseudo-JS (primary)
+hbc-decompiler index.android.bundle decompiled.js     # secondary: pseudo-code — test it against the bundle
 hbc-disassembler index.android.bundle disasm.hasm     # cross-check / when decompile chokes
 strings -n 6 index.android.bundle > bundle_strings.txt
 # dex + manifest in parallel:
@@ -63,7 +65,7 @@ Treat every recovered key as live until proven otherwise — build-time-injected
 - **STORAGE** — `AsyncStorage` writes plaintext to `/data/data/<pkg>/databases/RKStorage` (SQLite) or `files/`; `react-native-mmkv` (`libreactnativemmkv.so`) is also plaintext by default. Grep the bundle for `AsyncStorage.setItem` / `MMKV` near `token`/`refresh`/`session`. Flag tokens stored without Keystore/Keychain.
 - **NETWORK** — check **two** pinning layers: `res/xml/network_security_config.xml` (`<pin-set>`, `cleartextTrafficPermitted`) **and** the JS layer (`react-native-ssl-pinning`, TrustKit, fetch SPKI pins in the bundle). An empty NSC does not imply "no pinning" — RN apps often pin in JS. Map staging↔prod endpoint bleed (prod hosts hardcoded in a staging build).
 - **PLATFORM** — WebView config is set in JS: grep for `originWhitelist` (`['*']`), `allowFileAccess`, `allowingReadAccessToURL`, `mixedContentMode:'compatibility'`, `javaScriptEnabled`. In the manifest, map deep-link / OAuth-callback schemes and exported library receivers (`react-native-push-notification` registers receivers `exported=true` with no permission by default).
-- **CODE / OTA** — **CodePush / App Center OTA**: when a `CodePushDeploymentKey` is present and no signing public key is configured (no `CodePushPublicKey` meta-data / Gradle key), anyone controlling the deployment key can push an arbitrary JS bundle that runs with full app privileges = RCE-equivalent in the sandbox. Verify both the deployment key and the absence of bundle signing.
+- **CODE / OTA** — **CodePush / App Center OTA**: the App Center service retired in 2025, so a leftover `CodePushDeploymentKey` is usually a **dead artifact** — confirm an OTA endpoint still answers before scoring. When one does answer and no `CodePushPublicKey` bundle-signing key is configured, anyone controlling the deployment key can push an arbitrary JS bundle that runs with full app privileges = RCE-equivalent in the sandbox. Verify both the live endpoint and the absence of bundle signing.
 - **CODE / CVE** — recover bundled versions for CVE mapping: okhttp from its UA constant (`strings classes*.dex | grep -o 'okhttp/[0-9.]*'`), RN from `libhermes.so`, native parsers (`libpdfium.so`, Fresco) from `.so` + `.properties`. Run `python3 tools/nvd-lookup.py <CVE-ID>` per hit. An app that renders **server-supplied PDFs/images** through an outdated native parser carries a reachable memory-corruption class.
 - **AUTH** — client-side `jwt-decode` without signature verification is expected for display, but flag it where a claim drives a trust/authorization decision in JS. Confirm OAuth uses PKCE + `state`.
 - **RESILIENCE** — presence of `JailMonkey` (root/jailbreak), `react-native-ssl-pinning`, `ScreenGuard` (screenshot block), or Play Integrity is statically evident; document presence/absence here. When RESILIENCE is in scope (MAS-L2 / MASA), inventory is not the finding — actively bypass each control and show the protected flow still runs, and confirm the backend actually verifies the Play Integrity verdict/nonce (client-only checks are bypassable regardless). See [android-dynamic-analysis.md](../../android-dynamic-analysis.md). (Pinning is MASVS-NETWORK-2, screenshot-block is MASVS-PLATFORM-3; JailMonkey/Play-Integrity are the true MASVS-RESILIENCE items.)

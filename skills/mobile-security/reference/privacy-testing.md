@@ -1,6 +1,6 @@
 # Mobile — Privacy Testing (MASVS-PRIVACY, Android + iOS)
 
-MASVS-PRIVACY (added to MASVS v2 in 2023, a baseline audit expectation by 2026) asks a different question than the rest of the standard: not "can an attacker reach the data" but "does the app collect, expose, and share *more* than it declares." Most of this work is **static and in-wheelhouse** — you already decompiled the artifact for the other reference files; here you inventory what it touches and **diff declared-vs-actual**. The divergence *is* the finding.
+MASVS-PRIVACY (part of **MASVS 2.1.0**; weaknesses now carry stable MASWE v1.0.0 ids) asks a different question than the rest of the standard: not "can an attacker reach the data" but "does the app collect, expose, and share *more* than it declares." Most of this work is **static and in-wheelhouse** — you already decompiled the artifact for the other reference files; here you inventory what it touches and **diff declared-vs-actual**. The divergence *is* the finding.
 
 ## When to use
 
@@ -26,7 +26,7 @@ Scope, authorization, and RoE come from [`../../coordination/reference/preflight
 ```bash
 # Declared permissions (apkanalyzer ships with Android SDK cmdline-tools):
 apkanalyzer manifest permissions app.apk
-aapt dump permissions app.apk           # fallback if apkanalyzer absent
+aapt2 dump permissions app.apk           # fallback if apkanalyzer absent
 ```
 
 Flag every **dangerous** / **special** permission with no matching feature in the decompiled code — the classic over-ask. Grep the dex for the *use*, not just the grant:

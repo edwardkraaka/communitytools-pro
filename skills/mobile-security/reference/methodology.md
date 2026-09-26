@@ -62,8 +62,8 @@ One fast automated pass to fingerprint the framework and pre-populate the MASVS
 grid. **Never the deliverable** — its output is a worklist, not a finding set.
 
 ```bash
-# MobSF static scan (self-hosted; API mode is scriptable)
-docker run -it --rm -p 8000:8000 opensecurity/mobile-security-framework-mobsf:latest
+# MobSF static scan (self-hosted; API mode is scriptable — 4.5.3, REST v1 unchanged; Authorization: or X-Mobsf-Api-Key:)
+docker run --rm -d -p 127.0.0.1:8000:8000 opensecurity/mobile-security-framework-mobsf@sha256:<digest>   # pin a tested digest
 curl -F 'file=@base.apk' -H "Authorization:$MOBSF_KEY" http://127.0.0.1:8000/api/v1/upload
 # framework fingerprint (routes you to the owning recipe):
 unzip -l base.apk | grep -E 'libapp\.so|libflutter\.so' && echo FLUTTER
@@ -77,12 +77,11 @@ Framework → recipe: Flutter → [`flutter-aot-reversing.md`](flutter-aot-rever
 custom `.so` logic → [`scenarios/android/native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md); stock →
 [`android-static-analysis.md`](android-static-analysis.md) / [`ios-static-analysis.md`](ios-static-analysis.md).
 
-## MASVS v2.x coverage map
+## MASVS 2.1.0 → MASWE v1.0.0 → MASTG v2 coverage map
 
-Tag **every** finding with its MASVS control id **and** the covering MASTG-TEST id
-so it hands cleanly to the reporting skill. Groups × owning file:
+Tag **every** finding with the chain: **MASVS 2.1.0 control id** → **stable MASWE v1.0.0 weakness id** (first stable release, Aug 2026) → the specific current **MASTG v2 test** used to reproduce the behavior, so it hands cleanly to the reporting skill. Legacy `MASTG-TEST-XXXX` ids may follow as *clearly-labeled aliases*: there is no official old-id → MASWE crosswalk file — the per-test YAML frontmatter `maswe:` field under `tests-beta/<platform>/<MASVS-category>/` is the mapping. **Pin the MASTG release + commit you cite and use one snapshot per report** — the v2.0.0 tag and current master disagree on per-test weakness mapping, so material sourced from both silently mixes ids. 4-digit ids everywhere. Groups × owning file:
 
-| MASVS group | Android file | iOS file | Coverage class_id(s) | Typical MASTG / MASWE |
+| MASVS group | Android file | iOS file | Coverage class_id(s) | Anchors (verify the exact test per MASTG v2) |
 |-------------|--------------|----------|----------------------|------------------------|
 | STORAGE | android-static + dynamic | ios-static + dynamic | `MAS-STORAGE-LOCAL` `MAS-STORAGE-LOGS` | MASTG-TEST-0200s · MASWE-0006 |
 | CRYPTO | android-static-analysis.md | ios-static-analysis.md | `MAS-CRYPTO-WEAK` `MAS-CRYPTO-KEYMGMT` | MASTG-TEST-0210s · MASWE-0009 |
@@ -149,7 +148,7 @@ for stripped/packed `.so` internals, [`../../reverse-engineering/reference/scena
 - Analyzing an artifact before recording its sha256 + version (broken evidence chain).
 - Skipping DYNAMIC for pinning/root/Keystore claims — statically "present" ≠ enforced.
 - Scoring a client-side IDOR/authz check without confirming server-side behavior.
-- Emitting a finding with no MASVS control id + MASTG-TEST id — it won't map in the report.
+- Emitting a finding with no MASVS control id + MASTG-TEST id — it won't map in the report. (Modern tagging: MASVS control → stable MASWE id → current MASTG test — one pinned snapshot per report.)
 - Re-implementing Frida/ELF/IL2CPP primitives here instead of cross-linking them.
 
 ## Cross-references

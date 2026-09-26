@@ -6,7 +6,7 @@ When a Mobile challenge or target ships a Flutter Android APK with `lib/arm64-v8
 
 | Tool | When to use | Notes |
 |------|-------------|-------|
-| **blutter** (`https://github.com/worawit/blutter`) | Dart 3.x snapshots (Flutter 3.16+) | Builds the matching Dart VM from source against the SDK version. Best output quality (annotated ARM64 + class hierarchy). 5-10 min build. |
+| **blutter** (`https://github.com/worawit/blutter`) | Dart 3.x snapshots (Flutter 3.16+) | Builds the matching Dart VM from source against the SDK version. Best output quality (annotated ARM64 + class hierarchy); no tagged releases — pin a commit. **arm64-only** input: pass the `lib/arm64-v8a` dir (below). Dart 3.11+ needs the Aug-2026 parser fix — build current master. |
 | **doldrums** (`https://github.com/rscloura/Doldrums`) | Dart 2.x snapshots only | Pure Python; broken on Dart 3.x. |
 | **reFlutter** (`https://github.com/Impact-I/reFlutter`) | When you need to *modify* the APK to disable TLS pinning + enable Frida | `pip3 install reflutter` (a pip CLI, **not** Docker): inserts a patched Flutter engine → patched APK (Frida-gadget or built-in proxy/unpin mode); re-sign the output. |
 
@@ -41,7 +41,7 @@ The bank/payment/transfer apps typically wrap requests as:
    - **pointycastle Dart package**: configurable, often SHA-256
 4. **Body**: `base64(AES-256-CBC-PKCS7(jsonEncode(body), aes_key, aes_iv))`.
 
-> **Report it, don't just replicate it.** This envelope is a *finding source*, not only a contract: AES-CBC with **no MAC** (non-AEAD) is malleable/padding-oracle-prone, and a **static or reused IV** (or `key == IV`) is a MASVS-CRYPTO-1 weakness (MASWE-020/021). Flag those while you reverse the contract — see [android-static-analysis.md](android-static-analysis.md) for the full crypto-primitive weakness pass.
+> **Report it, don't just replicate it.** This envelope is a *finding source*, not only a contract: AES-CBC with **no MAC** (non-AEAD) is malleable/padding-oracle-prone, and a **static or reused IV** (or `key == IV`) is a MASVS-CRYPTO-1 weakness (MASWE-0024). Flag those while you reverse the contract — see [android-static-analysis.md](android-static-analysis.md) for the full crypto-primitive weakness pass.
 
 **Common mistake**: Python `cryptography.hazmat.primitives.asymmetric.padding.OAEP` defaults to SHA-1. If your client uses SHA-1 against a fast_rsa server, every request returns 400 with no useful error.
 
