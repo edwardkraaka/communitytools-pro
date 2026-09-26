@@ -21,7 +21,7 @@ The 15 `MAS-*` classes in [`coverage-matrix.json`](../../coordination/reference/
 → [`android-static-analysis.md`](android-static-analysis.md) §6
 
 ### MAS-PLATFORM-IPC
-*Exported component reachable by a third-party app.* One cell per `type: component` / `type: deeplink` unit. `runtime`: reachability from another app is the claim, so it needs an actual `am start` / drozer invocation or an iOS URL-scheme open. A manifest read tells you the attack surface, not whether it is exploitable. Use `equiv_group` for near-identical activities so one real probe credits the family.
+*Exported component reachable by a third-party app.* One cell per `type: component` / `type: deeplink` unit. `runtime`: reachability from another app is the claim, so it needs an actual `am start` / `adb shell content query` invocation (drozer optional) or an iOS URL-scheme open. A manifest read tells you the attack surface, not whether it is exploitable. Use `equiv_group` for near-identical activities so one real probe credits the family.
 → [`android-static-analysis.md`](android-static-analysis.md) §2-3, [`android-dynamic-analysis.md`](android-dynamic-analysis.md) (drozer), [`ios-static-analysis.md`](ios-static-analysis.md) (URL schemes)
 
 ### MAS-PLATFORM-WEBVIEW

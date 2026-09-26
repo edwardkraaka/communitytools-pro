@@ -7,7 +7,7 @@ description: Mobile application security testing (Android + iOS) mapped to OWASP
 
 ## Scope
 
-End-to-end mobile application VAPT for **Android (APK/AAB)** and **iOS (IPA)**, aligned to the OWASP **MASVS v2.x** control groups and the **MASTG** testing process. Four complementary tiers:
+End-to-end mobile application VAPT for **Android (APK/AAB)** and **iOS (IPA)**, aligned to the OWASP **MASVS 2.1.0** control groups and the **MASTG v2** testing process. Four complementary tiers:
 
 1. **Static reverse engineering** of compiled artifacts — Dart AOT snapshots, Unity IL2CPP, React Native/Hermes bytecode, native ARM64 `.so`/Mach-O, smali. Recover secrets, endpoints, and the crypto contract without a device.
 2. **SAST** — manifest / `Info.plist`, exported-component & IPC surface, WebView, local storage, cryptographic-primitive weakness, code-signing, and automated baseline (MobSF/apkid/apkleaks) → then manual deep-dive.
@@ -54,7 +54,7 @@ Start at **[reference/methodology.md](reference/methodology.md)** — the phase 
 
 **Android**
 - [reference/android-static-analysis.md](reference/android-static-analysis.md) — SAST: MobSF/apkid/apkleaks baseline, manifest & exported-component/IPC, ContentProvider SQLi/traversal, PendingIntent, deep links, native WebView RCE, storage & Keystore review, crypto-primitive weakness pass, NSC, apksigner/Janus, SBOM.
-- [reference/android-dynamic-analysis.md](reference/android-dynamic-analysis.md) — DAST: device/Magisk/Zygisk setup, frida-server bring-up, objection recipes, interception + Android-7 user-CA workarounds, cross-stack pinning bypass (OkHttp/BoringSSL-Flutter/RN), drozer IPC, runtime storage, RESILIENCE active bypass + repack/resign.
+- [reference/android-dynamic-analysis.md](reference/android-dynamic-analysis.md) — DAST: device bring-up (Magisk/Zygisk Next, KernelSU-Next, redroid), frida-server, objection (≥1.12) recipes, traffic interception (user-CA + NSC primary; Android 14+ Conscrypt-APEX caveat), cross-stack pinning bypass (OkHttp/BoringSSL-Flutter/RN), exported-component/IPC runtime confirmation via adb, RESILIENCE active bypass + repack/resign.
 
 **iOS**
 - [reference/ios-static-analysis.md](reference/ios-static-analysis.md) — SAST: IPA acquisition + FairPlay decrypt (cryptid), Mach-O/ObjC/Swift RE, ATS, entitlements/provisioning, binary hardening, Keychain accessibility + Data Protection, URL schemes/Universal Links, WKWebView, pasteboard/snapshot, MobSF/SBOM.
@@ -62,11 +62,11 @@ Start at **[reference/methodology.md](reference/methodology.md)** — the phase 
 
 **Framework-specific reverse engineering**
 - [reference/flutter-aot-reversing.md](reference/flutter-aot-reversing.md) — Flutter/Dart AOT with blutter; HTTP crypto-envelope patterns (fast_rsa OAEP-SHA256 + AES-256-CBC) and the weaknesses to report.
-- [reference/scenarios/android/react-native-hermes.md](reference/scenarios/android/react-native-hermes.md) — RN+Hermes: HBC-version check, decompile `index.android.bundle` with hermes-dec, BuildConfig secret fast-path, RN-specific MASVS surface.
+- [reference/scenarios/android/react-native-hermes.md](reference/scenarios/android/react-native-hermes.md) — RN+Hermes: HBC-version check (header change at HBC 97+), decompile `index.android.bundle` with hermes-decomp/hermes-dec, BuildConfig secret fast-path, RN-specific MASVS surface.
 - [reference/scenarios/android/native-lib-host-extraction.md](reference/scenarios/android/native-lib-host-extraction.md) — host-side `dlopen` of an Android `.so` with a Bionic→glibc forwarder + `strcmp`/`memcmp` interceptor (no Frida/emulator).
 
 **Cross-skill (reused capabilities — cross-linked, not duplicated)**
-- [../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md](../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md) — Unity `libil2cpp.so` + `global-metadata.dat` dump (Il2CppDumper/Il2CppInspector).
+- [../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md](../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md) — Unity `libil2cpp.so` + `global-metadata.dat` dump (Il2CppInspectorRedux primary + frida-il2cpp-bridge runtime; Il2CppDumper fallback).
 - [../reverse-engineering/reference/scenarios/dynamic-analysis/frida-hooking.md](../reverse-engineering/reference/scenarios/dynamic-analysis/frida-hooking.md) — Frida hooking primitives (spawn/attach, Interceptor, Stalker, `Java.perform`, ObjC hooks) used by both dynamic files.
 - [../reverse-engineering/reference/scenarios/obfuscation/packed-binaries.md](../reverse-engineering/reference/scenarios/obfuscation/packed-binaries.md) — packer / anti-analysis unpacking for obfuscated APKs/`.so`.
 - [../reverse-engineering/reference/scenarios/obfuscation/hash-dispatcher-chain.md](../reverse-engineering/reference/scenarios/obfuscation/hash-dispatcher-chain.md) — Z3 over polynomial-hash dispatcher chains in a native `.so`.
