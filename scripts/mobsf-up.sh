@@ -60,6 +60,7 @@ docker run -d --name mobsf \
   -p "${DOCK0_IP}:${MOBSF_PORT}:8000" \
   -v mobsf-data:/home/mobsf/.MobSF \
   -e MOBSF_API_KEY="$KEY" \
+  --health-cmd 'curl --fail --silent http://127.0.0.1:8000/ >/dev/null || exit 1' \
   "$MOBSF_IMAGE" >/dev/null
 
 echo "[mobsf-up] waiting for the REST API on ${DOCK0_IP}:${MOBSF_PORT} ..."
