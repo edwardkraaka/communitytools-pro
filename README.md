@@ -59,6 +59,8 @@ bash scripts/kali-claude-setup.sh projects/pentest
 
 This builds a Docker image with Kali Rolling + Node.js + Claude Code + Playwright + Chromium, mounts the project workspace, and launches Claude Code with `--dangerously-skip-permissions`. Use `--rebuild` to force a fresh image build.
 
+**Mobile App Farm / MobSF:** the same image carries the mobile toolchain (apkeep, jadx, apktool, androguard, APKEditor, hermes-dec — see [`skills/mobile-app-farm`](skills/mobile-app-farm/SKILL.md)). The MobSF scanner runs as a dedicated container launched by [`scripts/mobsf-up.sh`](scripts/mobsf-up.sh) — digest-pinned and bound to the docker0 bridge IP only (`http://172.17.0.1:8000`, reachable from the host and from pipeline containers, never from outside). Put `MOBSF_URL`/`MOBSF_KEY` in your gitignored `.env` (see `.env.example`); `scripts/apk-pipeline.sh` and the mobile engagement workflow consume them to add `mobsf-report.json` to each triage.
+
 ---
 
 ## Quick Start
