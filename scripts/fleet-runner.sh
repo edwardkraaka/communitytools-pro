@@ -317,6 +317,9 @@ while :; do
         art=$(osint_artifact "$tag")
         if [ -n "$art" ]; then
           if docker exec "$c" tmux has-session -t eng 2>/dev/null; then
+            # clear any agents overlay first — send-keys into an overlay is
+            # swallowed (the nudge rung's lesson; pane_idle can't see overlays)
+            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
             if pane_idle "$c"; then
               b1=$(transcript_bytes "$tag")
               sleep "$IDLE_SAMPLE"
@@ -390,6 +393,10 @@ while :; do
           # that rides the parked-nudge ladder (phase-aware text below) + the
           # timeout ceiling.
           if docker exec "$c" tmux has-session -t eng 2>/dev/null; then
+            # clear any agents overlay first — send-keys into an overlay is
+            # swallowed (ankr burned both capped injections this way: overlay
+            # from a finished subagent parked 2h; x clears, then inject)
+            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
             if pane_idle "$c"; then
               b1=$(transcript_bytes "$tag")
               sleep "$IDLE_SAMPLE"
