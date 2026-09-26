@@ -5,10 +5,23 @@ Compiled-AOT Unity games (Windows/Android/iOS) ship as IL2CPP: C# is transpiled 
 ## Identify
 - Path contains `<Game>_Data/il2cpp_data/Metadata/global-metadata.dat` → IL2CPP.
 - Metadata magic: `AF 1B B1 FA` little-endian (`0xFAB11BAF`) at offset 0.
-- Metadata version at offset 4: 24 (Unity 2018), 27 (2019), 29 (2020-2022), 31+ (2023+).
+- Metadata version at offset 4: 24 (Unity 2018), 27 (2019), 29/29.1 (2020-2022), 31/35/38/39 (2023-25), 104-110 (Unity 6 line).
 - `Application.dataPath` / `Application.streamingAssetsPath` symbols visible in the dumped C++ assembly.
 
-## Dump (Il2CppDumper)
+## Dump — Il2CppInspectorRedux (primary)
+```
+git clone --depth 1 https://github.com/LukeFZ/Il2CppInspectorRedux
+cd Il2CppInspectorRedux/Il2CppInspector.CLI
+dotnet publish -r linux-x64 -c Release
+./bin/Release/net*/publish/Il2CppInspector -i libil2cpp.so -m global-metadata.dat -c out.cs -o out.json
+# Windows games: -i GameAssembly.dll
+```
+
+Il2CppInspectorRedux (2026.2) handles metadata variants 29, 29.1, 31, 35, 38, 39, 104, 105, 106, 106.1, 107, 108, 110 — i.e. the current Unity 6 line, which is where the original tools stalled.
+
+**Runtime dump (often easier)**: `npx frida-il2cpp-bridge -- -f <pkg> dump --out-dir dumps` (0.12.1; Unity 5.3–6000.1.x) — dumps the live il2cpp image with no metadata-version guessing.
+
+**Il2CppDumper** (Perfare) is the fallback, and a pinned-commit-fragile one: upstream issue #892 (newer metadata, e.g. v39) is closed with discussion pointing at a fork, and the upstream tagged release does not prove a fix. Build the fork if Redux misses your metadata version, and verify the supported-version list before blaming the binary.
 ```
 git clone --depth 1 https://github.com/Perfare/Il2CppDumper.git
 cd Il2CppDumper
@@ -84,7 +97,7 @@ for obj in env.objects:
 - `Application.dataPath` is `<exe>_Data/`. Anti-tamper checks compute paths relative to this.
 
 ## Dynamic analysis (when static is insufficient)
-- **Frida**: hook `UnityEngine.UI.Text::set_text` and `TMPro.TMP_Text::set_text` to capture every UI string set at runtime. On Windows, attach with `frida -p <pid>` after launch.
+- **Frida**: hook `UnityEngine.UI.Text::set_text` and `TMPro.TMP_Text::set_text` to capture every UI string set at runtime. On Windows, attach with `frida -p <pid>` after launch. On Android, `frida-il2cpp-bridge` (see the runtime dump above) also drives per-object inspection.
 - **dnSpy** (Windows): debug the dumped DummyDll mapped to running process for breakpoint-level inspection.
 - **MelonLoader / BepInEx**: code injection frameworks that let you hook Update() in C# directly.
 - **Memory dump**: process snapshot then `strings` + `grep HTB{` — finds runtime-built flags.

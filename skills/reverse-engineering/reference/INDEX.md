@@ -10,7 +10,7 @@ Read `reverse-engineering-principles.md` first for the decision tree. This index
 | Windows PE / .NET triage | `scenarios/static-analysis/pe-analysis.md` | DIE + dnSpy or IDA |
 | Stripped binary, find functions | `scenarios/static-analysis/disassembly-recipe.md` | Auto-analyze, find main, rename, retype |
 | `strings` mostly empty | `scenarios/static-analysis/string-extraction.md` | FLOSS for stack / decoded strings |
-| Unity IL2CPP game (`GameAssembly.dll` + `global-metadata.dat`) | `scenarios/static-analysis/unity-il2cpp-recipe.md` | Il2CppDumper + dnSpy on DummyDll; resolve metadata tokens via script.json |
+| Unity IL2CPP game (`GameAssembly.dll` + `global-metadata.dat`) | `scenarios/static-analysis/unity-il2cpp-recipe.md` | Il2CppInspectorRedux + frida-il2cpp-bridge (Il2CppDumper fallback); resolve metadata tokens via script.json |
 
 ## Hardware / Firmware
 
