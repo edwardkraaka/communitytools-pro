@@ -176,9 +176,8 @@ if [ "$DRY_RUN" = 1 ]; then
   printf '%s\n' "$PARSED" | awk -F'\t' '{printf "  %-24s %-32s %s\n", $1, $2, ($3==""?"(no instructions)":"instructions: "substr($3,1,60) (length($3)>60?"…":""))}'
   echo "slots: $SLOTS | timeouts: osint ${OSINT_TIMEOUT_H}h / active ${ACTIVE_TIMEOUT_H}h | launch-interval ${LAUNCH_INTERVAL}s | idle-sample ${IDLE_SAMPLE}s"
   echo "egress sidecar: ${GLUETUN_OPT:-auto-probe (gluetun, gluetun-za)}"
-  echo "── stage-1 kickoff sample (names the per-target engagement dir):"
-  IFS=$'\t' read -r t0 u0 _unused <<< "$(printf '%s\n' "$PARSED" | head -1)"
-  osint_kickoff "$u0" "$t0" | fold -sw 100 | sed 's/^/  /'
+  echo "── stage-1 kickoff (all targets, identical):"
+  printf '%s\n' "$PARSED" | head -1 | awk -F'\t' '{print "  " $1 ": " $2}'
   echo "── sample stage-2 message:"
   IFS=$'\t' read -r t u i <<< "$(printf '%s\n' "$PARSED" | head -1)"
   stage2_message "$u" "$t" "$i" | fold -sw 100 | sed 's/^/  /'
@@ -550,7 +549,7 @@ while :; do
       if fleet_preflight "$ACTIVE_GLUETUN" "$WS/.env.deepinfra" "launch $next_tag" 2>>"$RUN_DIR/fleet.log"; then
         if memory_gate 2>>"$RUN_DIR/fleet.log"; then
           url=$(state_get "$RUNID" "$next_tag" '.url')
-          kickoff=$(osint_kickoff "$url" "$next_tag")
+          kickoff=$(osint_kickoff "$url")
           if FLEET_GLUETUN="$ACTIVE_GLUETUN" bash /root/communitytools/scripts/kali-eng.sh "$next_tag" "$kickoff" >>"$RUN_DIR/fleet.log" 2>&1; then
             # stamp ownership marker into the registry env (render/up source it; unknown keys ignored)
             grep -q '^FLEET_RUN=' "$ENGAGE_REG/$next_tag.env" 2>/dev/null || echo "FLEET_RUN=$RUNID" >> "$ENGAGE_REG/$next_tag.env"

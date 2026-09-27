@@ -9,7 +9,7 @@ FLEET_DIR="$STACK/fleet"
 WS=/root/communitytools/projects/pentest       # = /workspace in containers
 KALI_STATE=/root/kali-state
 ENGAGE_REG="$STACK/engagements"
-BOX_IP=REDACTED-BOX-IP
+BOX_IP=4.222.217.53
 IMAGE=kali-claude-eng:latest
 
 fleet_log() {  # fleet_log <runid> <msg...>
@@ -362,13 +362,8 @@ injection_taken_up() {
 }
 
 # --------------------------------------------------------------- kickoffs --
-osint_kickoff() {  # <url> <tag>
-  # The engagement dir is NAMED (tag + timestamp): the Sep-27 f2pool slot found no
-  # *f2pool* dir, adopted the newest visible OSINT dir (foundrydigital's), and spent
-  # the slot on another target's engagement. Never leave "the engagement directory"
-  # ambiguous again.
-  local dir="/workspace/projects/pentest/$(date +%Y%m%d)_${2}_osint"
-  printf 'Use the osint skill: run a complete passive OSINT engagement on %s. Create your engagement directory %s (this exact directory — it is yours; do NOT work in or modify any other engagement directory) and write everything there. Follow the coordination skill OUTPUT_STRUCTURE. Validate every discovered credential (single-shot read-only identity calls) and hand them off in session-memory.md. You are running unattended: never ask questions and never wait for user input. Always finish by writing reports/osint_report.md inside %s.' "$1" "$dir" "$dir"
+osint_kickoff() {  # <url>
+  printf 'Use the osint skill: run a complete passive OSINT engagement on %s. Follow the coordination skill OUTPUT_STRUCTURE and write everything to the engagement directory. Validate every discovered credential (single-shot read-only identity calls) and hand them off in session-memory.md. You are running unattended: never ask questions and never wait for user input. Always finish by writing reports/osint_report.md in the engagement directory.' "$1"
 }
 
 stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path]
