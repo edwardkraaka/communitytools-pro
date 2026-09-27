@@ -75,7 +75,10 @@ unzip -l base.apk | grep -E 'classes[0-9]*\.dex' && echo NATIVE_ANDROID
 Framework → recipe: Flutter → [`flutter-aot-reversing.md`](flutter-aot-reversing.md); RN/Hermes →
 [`scenarios/android/react-native-hermes.md`](scenarios/android/react-native-hermes.md); Unity → [`../../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md`](../../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md);
 custom `.so` logic → [`scenarios/android/native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md); stock →
-[`android-static-analysis.md`](android-static-analysis.md) / [`ios-static-analysis.md`](ios-static-analysis.md).
+[`android-static-analysis.md`](android-static-analysis.md) / [`ios-static-analysis.md`](ios-static-analysis.md);
+2026 surface sweep (SDK exports, FCM, WASM, AAB/CT, white-label) →
+[`scenarios/android/advanced-static-surfaces-2026.md`](scenarios/android/advanced-static-surfaces-2026.md);
+kernel-side capture / fuzzing lanes → [`scenarios/android/advanced-ebpf-dynamic-2026.md`](scenarios/android/advanced-ebpf-dynamic-2026.md).
 
 ## MASVS 2.1.0 → MASWE v1.0.0 → MASTG v2 coverage map
 
@@ -154,7 +157,8 @@ for stripped/packed `.so` internals, [`../../reverse-engineering/reference/scena
 ## Cross-references
 
 - Framework recipes: [`flutter-aot-reversing.md`](flutter-aot-reversing.md) · [`scenarios/android/react-native-hermes.md`](scenarios/android/react-native-hermes.md) ·
-  [`scenarios/android/native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md).
+  [`scenarios/android/native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md) ·
+  [`scenarios/android/advanced-static-surfaces-2026.md`](scenarios/android/advanced-static-surfaces-2026.md) · [`scenarios/android/advanced-ebpf-dynamic-2026.md`](scenarios/android/advanced-ebpf-dynamic-2026.md) (2026 technique scenarios).
 - Platform phases: [`android-static-analysis.md`](android-static-analysis.md) · [`android-dynamic-analysis.md`](android-dynamic-analysis.md) ·
   [`ios-static-analysis.md`](ios-static-analysis.md) · [`ios-dynamic-analysis.md`](ios-dynamic-analysis.md) · [`privacy-testing.md`](privacy-testing.md).
 - RE primitives: [`../../reverse-engineering/reference/scenarios/dynamic-analysis/frida-hooking.md`](../../reverse-engineering/reference/scenarios/dynamic-analysis/frida-hooking.md) ·
