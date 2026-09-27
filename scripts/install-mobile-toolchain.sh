@@ -3,20 +3,21 @@
 # Invoked from scripts/kali-claude-setup.sh (Dockerfile). Resilient: a failed optional download
 # warns instead of failing the build (the skill documents manual fallbacks). Run as root.
 #
-#   apkeep · jadx · apktool · androguard · ripgrep · openjdk · adb · aapt · APKEditor.jar · ipatool
+#   apkeep · jadx · apktool · androguard · ripgrep · openjdk · adb · aapt · APKEditor.jar · ipatool · gplaydl
 set -u
 warn() { echo "[toolchain][WARN] $*" >&2; }
 
 APKEEP_VER="${APKEEP_VER:-1.0.0}"        # 1.0.0 (2026-04): Play API auth fix + Aurora dispenser tokens
 APKEDITOR_VER="${APKEDITOR_VER:-1.4.9}"  # 1.4.9 (2026-05): split/XAPK merge fix (#228)
 IPATOOL_VER="${IPATOOL_VER:-2.1.6}"
+GPLAYDL_VER="${GPLAYDL_VER:-4.2.1}"      # 4.2.1 (2026-08): Pixel 9a profile rotation; SHA-256 verify vs Play hashes
 ARCH="$(uname -m)"   # x86_64 / aarch64
 
 echo "[toolchain] apt packages..."
 apt-get update -qq || warn "apt update failed"
 # Try the fuller set first; fall back to the essentials if a package name is unavailable.
-apt-get install -y -qq default-jdk-headless unzip wget ca-certificates ripgrep apktool jadx adb aapt >/dev/null 2>&1 \
-  || apt-get install -y -qq default-jdk-headless unzip wget ca-certificates ripgrep apktool jadx adb >/dev/null 2>&1 \
+apt-get install -y -qq default-jdk-headless unzip wget ca-certificates ripgrep apktool jadx adb aapt python3-venv >/dev/null 2>&1 \
+  || apt-get install -y -qq default-jdk-headless unzip wget ca-certificates ripgrep apktool jadx adb python3-venv >/dev/null 2>&1 \
   || warn "some apt packages unavailable — install apktool/jadx/adb manually if missing"
 
 echo "[toolchain] pip: androguard..."
@@ -27,6 +28,20 @@ echo "[toolchain] pip: hermes-dec..."
 # hermes-decomp (Rust) stays OUT of the image: source-built per-target, documented in
 # the react-native-hermes scenario.
 pip3 install --break-system-packages --quiet 'hermes-dec==0.1.7' 2>/dev/null || warn "hermes-dec pip install failed — RN bundle decompilation unavailable"
+
+echo "[toolchain] gplaydl ${GPLAYDL_VER} (isolated venv)..."
+# gplaydl (rehmatworks) — authenticated Google Play acquisition: current build, split
+# APKs, SHA-256 verified against Play's declared hashes. Debian's system pip3 cannot
+# host it (typing_extensions 4.10.0 RECORD conflict with the debian-managed install),
+# so it lives in its own venv behind a stable /usr/local/bin symlink.
+# NO pairing happens in the image: this layer runs as root BEFORE the claude user is
+# created, and gplaydl's config (~/.config/gplaydl/config.json) is per-HOME anyway.
+# In-image auth is exclusively the GPLAYDL_API_KEY env var, which gplaydl reads before
+# its config file — pass it with `-e GPLAYDL_API_KEY` on `docker run`.
+python3 -m venv /opt/gplaydl-venv \
+  && /opt/gplaydl-venv/bin/pip install --quiet "gplaydl==${GPLAYDL_VER}" \
+  && ln -sf /opt/gplaydl-venv/bin/gplaydl /usr/local/bin/gplaydl \
+  || warn "gplaydl venv install failed — authenticated Play acquisition unavailable in this image"
 
 echo "[toolchain] apkeep ${APKEEP_VER}..."
 case "$ARCH" in
@@ -65,7 +80,7 @@ fi
 
 apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* 2>/dev/null || true
 echo "[toolchain] done. Present:"
-for t in apkeep jadx apktool adb rg java ipatool hbc-decompiler; do
+for t in apkeep jadx apktool adb rg java ipatool hbc-decompiler gplaydl; do
   printf '  %-10s %s\n' "$t" "$(command -v "$t" 2>/dev/null || echo MISSING)"
 done
 [ -f /opt/APKEditor.jar ] && echo "  APKEditor  /opt/APKEditor.jar" || echo "  APKEditor  MISSING"
