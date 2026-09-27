@@ -7,11 +7,13 @@ Operational detail for [`../../../scripts/apk-pipeline.sh`](../../../scripts/apk
 ## Toolchain (baked into the `kali-claude` image)
 
 `scripts/kali-claude-setup.sh` installs: `apkeep`, `jadx`, `apktool`, `androguard`, `ripgrep`,
-`openjdk`, `android-sdk-platform-tools` (adb), `APKEditor.jar` (`/opt/APKEditor.jar`), `ipatool`.
+`openjdk`, `android-sdk-platform-tools` (adb), `APKEditor.jar` (`/opt/APKEditor.jar`), `ipatool`,
+`gplaydl` (isolated venv at `/opt/gplaydl-venv` — authenticated Play acquisition; auth via
+`GPLAYDL_API_KEY`, the image ships unpaired).
 Verify inside a container:
 
 ```bash
-apkeep --version && jadx --version && apktool --version && androguard --help >/dev/null && rg --version
+apkeep --version && jadx --version && apktool --version && androguard --help >/dev/null && rg --version && gplaydl --version
 ```
 
 ## MobSF — sibling container, not in the image
