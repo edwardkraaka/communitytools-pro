@@ -67,6 +67,7 @@ Start at **[reference/methodology.md](reference/methodology.md)** — the phase 
 
 **Current-gen Android techniques (2026)**
 - [reference/scenarios/android/advanced-ebpf-dynamic-2026.md](reference/scenarios/android/advanced-ebpf-dynamic-2026.md) — eBPF traffic capture (ecapture — plaintext at the SSL boundary, pinning moot), intent/deeplink fuzzers, LLM GUI agents (Maestro), frida-dexdump, encrypted-envelope replay, Play-Integrity relay testing.
+- [reference/scenarios/android/advanced-static-surfaces-2026.md](reference/scenarios/android/advanced-static-surfaces-2026.md) — AAB/Code-Transparency gaps, Play Core persistence, white-label differential, exported SDK components (EngageSDK case), FCM handler abuse, PendingIntent provenance, TWA/assetlinks, WASM concealment, ML-model abuse, mapping.txt hunt.
 
 **Cross-skill (reused capabilities — cross-linked, not duplicated)**
 - [../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md](../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md) — Unity `libil2cpp.so` + `global-metadata.dat` dump (Il2CppInspectorRedux primary + frida-il2cpp-bridge runtime; Il2CppDumper fallback).
