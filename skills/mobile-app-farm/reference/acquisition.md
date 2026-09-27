@@ -1,43 +1,43 @@
 # Acquisition — fetching APKs/IPAs by id (no emulator, no ADB)
 
-How the farm gets bytes. The workhorse is **`apkeep`** (EFF, Rust) for Android and **`ipatool`**
-for iOS. Both are batch-friendly and driven from [`../../../scripts/apk-pipeline.sh`](../../../scripts/apk-pipeline.sh).
+How the farm gets bytes. The workhorse is **`gplaydl`** (authenticated Google Play — current build, split APKs, self-verifying) with **`apkeep`** (EFF, Rust) for credential-free mirrors and the legacy Play path, and **`ipatool`** for iOS. All batch-friendly, driven from [`../../../scripts/apk-pipeline.sh`](../../../scripts/apk-pipeline.sh).
 
-## Android — apkeep sources
+## Android — sources
 
-| Source (`-d`) | Credentials | Notes |
-|---------------|-------------|-------|
-| `apk-pure` (default) | none | Fast, no account. First choice for triage. |
-| `f-droid` | none | FOSS apps only. |
-| `google-play` | Google email + **AAS token** | Production-faithful build; split APKs; needs the one-time token below. |
-| `huawei-app-gallery` | none | Regional fallback. |
+| Source | Credentials | Notes |
+|--------|-------------|-------|
+| `google-play` via **gplaydl** (preferred) | gplaydl dispenser key | Current build for a rotating real-device profile; split APKs + OBB; every artifact SHA-256-verified against Play's declared hashes at download time. |
+| `google-play` via apkeep + AAS (legacy) | Google email + pre-minted AAS token | Works only with tokens minted before Sept 2026 — the OAuth mint is broken upstream (see below). |
+| `apk-pure` via apkeep (default mirror) | none | Fast, no account. First choice for credential-free triage; may serve an OLDER build. |
+| `f-droid` via apkeep | none | FOSS apps only. |
+| `huawei-app-gallery` via apkeep | none | Regional fallback. |
 
 ```bash
-apkeep -a com.example.app -d apk-pure  ./raw                 # no creds
-apkeep -a com.example.app -d google-play \
-  -e "$GOOGLE_PLAY_EMAIL" -t "$GOOGLE_PLAY_AAS_TOKEN" \
-  -o "split_apk=1,include_additional_files=1" ./raw          # authenticated
+gplaydl download com.example.app -o ./raw            # authenticated — current build, splits verified
+gplaydl download com.example.app -o ./raw -a x86_64  # arch pin (e.g. acquiring for an emulator image)
+apkeep -a com.example.app -d apk-pure ./raw          # no creds — mirror
 ```
 
-### One-time Google Play AAS token
-Google Play needs an **AAS token** minted once from a Google account, then reused:
+### One-time gplaydl pairing
+gplaydl links **your own Google account** through a one-time pairing:
 
-1. Get an OAuth token by signing in at the embedded-setup URL apkeep documents
-   (`USAGE-google-play.md` in the apkeep repo) — yields an `oauth2_4/...` token.
-2. Exchange it for a durable AAS token (apkeep's documented `aas_token` step / `gpapi`).
-3. Store **only** in the gitignored `.env` (`.env.deepinfra`), sourced at container start:
-   ```
-   export GOOGLE_PLAY_EMAIL="acct@gmail.com"
-   export GOOGLE_PLAY_AAS_TOKEN="aas_et/..."
-   ```
-   `.env.example` carries the placeholder; the real token is never committed.
+1. Install gplaydl — already in the `kali-claude` image (`/opt/gplaydl-venv`, `/usr/local/bin/gplaydl`); on a clean host, an isolated venv (`pipx` / `python3 -m venv`) — Debian's system pip3 has a conflict on `typing_extensions`.
+2. On any Android device, install the **gplaydl Authenticator app** (linked from the gplaydl repo) and sign in with the Google account you want to download as. It shows a rotating pairing code.
+3. On the host: `gplaydl link --code "XXXX XXXX"` — pairs against the dispenser (dispenser.gplaydl.com) and writes `{dispenser, api_key}` to `~/.config/gplaydl/config.json`.
+4. Farm/container path: copy that `api_key` into the gitignored `.env` as `GPLAYDL_API_KEY=` — the env var **fully overrides** the config file (gplaydl reads it first), which is what makes `docker run -e GPLAYDL_API_KEY=...` work inside a container with no pairing state.
 
-Alternatives if Play integration hiccups: **`gplaydl`** (Python) or **`apkd`** (multi-source,
-accepts a `packages.txt` with pinned versions).
+The image ships **unpaired by design**: the installer layer runs as root before the user exists, and the config is per-HOME. Host pairing or `GPLAYDL_API_KEY` — those are the two auth states.
 
-There is **no Google Play download API / API key** — Google exposes no public download endpoint.
-"Authenticated Google Play" means the Play Store protocol (gpapi) with a Google account; the
-**AAS token is that account's reusable credential**, not an API key.
+### Legacy: Google Play via apkeep + AAS token
+apkeep's EmbeddedSetup OAuth browser mint **broke in September 2026** — Google's ToS page stalls without ever issuing the `oauth_token` cookie (apkeep issue #238 pattern). **Pre-minted AAS tokens still work** (issue #246): if you already have `GOOGLE_PLAY_EMAIL` / `GOOGLE_PLAY_AAS_TOKEN` in your `.env`, the pipeline honors them as a fallback lane when gplaydl is unavailable. When a token eventually expires or gets revoked, that is the moment to switch to the gplaydl pairing above rather than re-minting.
+
+```bash
+apkeep -a com.example.app -d google-play \
+  -e "$GOOGLE_PLAY_EMAIL" -t "$GOOGLE_PLAY_AAS_TOKEN" \
+  -o "split_apk=1,include_additional_files=1" ./raw   # legacy — pre-2026-09 tokens only
+```
+
+There is **no Google Play download API / API key** — Google exposes no public download endpoint. "Authenticated Google Play" means the Play Store protocol with your own linked account; the gplaydl dispenser key (and historically the AAS token) is that account link's reusable credential, not an API key.
 
 ### Why Google Play, not just a mirror
 Prefer Google Play whenever the build must be trustworthy:
@@ -48,37 +48,43 @@ Prefer Google Play whenever the build must be trustworthy:
 - **Coverage** — **rare / unlisted / newly published apps are simply not on the mirrors.** Google
   Play is then the only source (subject to the account being able to see and acquire the app).
 
-The pipeline therefore uses Google Play automatically when `GOOGLE_PLAY_*` are set, and treats a
-mirror only as an **opt-in** fallback (`APK_SOURCE_FALLBACK=1`) so you never silently accept a
-stale build.
+The pipeline therefore prefers gplaydl automatically when `GPLAYDL_API_KEY` (or a host `~/.config/gplaydl/config.json`) is present, falls back to the apkeep+AAS lane when only `GOOGLE_PLAY_*` is set, and treats a mirror only as an **opt-in** fallback (`APK_SOURCE_FALLBACK=1`) so you never silently accept a stale build.
 
 ### Account requirements & knobs
-- The account must have **acquired** the app (free-install it once from that account, or purchase a
+- The linked account must have **acquired** the app (free-install it once from that account, or purchase a
   paid app) — Play only serves apps in the account's library.
-- `GOOGLE_PLAY_DEVICE` (default `px_3a`) picks the **device profile** Play matches the APK to;
-  change it if a target ships architecture/SDK-restricted builds or reports "not available for your
-  device". Region matters too — use an account whose country matches the target's availability.
+- gplaydl **auto-rotates real device profiles** (Pixel-class), which reduces "not available for your
+  device" friction; `GPLAYDL_ARCH` (`arm64` default; `x86_64` for emulator targets) still matters for
+  architecture-restricted builds. Region matters too — link an account whose country matches the
+  target's availability.
 - Use a **dedicated** Google account for bulk fetching (mass download can flag a primary account);
-  the AAS token can expire or be revoked → re-mint via the steps above.
+  the dispenser key can be revoked or superseded — re-run the pairing to rotate it.
+- `GPLAYDL_EXTRAS=1` also fetches OBB / asset packs (default off: GB-scale, unused by the static
+  pipeline, and APKEditor's directory merge expects APKs only — curate the dir before merging).
 
 ## Split bundles → one universal APK
 
-apkeep (and Play) often return **split APKs / `.xapk` / `.apkm`** — `apktool` and `jadx` cannot
-read those directly. The pipeline merges to a single universal APK with **APKEditor** before
-decompiling:
+Play (and gplaydl in particular) return **split APKs** — `apktool` and `jadx` cannot
+read those directly — and apkeep mirrors may return `.xapk` / `.apkm` bundles. The pipeline merges
+to a single universal APK with **APKEditor** before decompiling:
 
 ```bash
 java -jar /opt/APKEditor.jar m -i app.xapk -o base.apk        # bundle → universal
 java -jar /opt/APKEditor.jar m -i ./raw     -o base.apk        # a dir of splits → universal
 ```
 
-`APKEDITOR_JAR` overrides the jar path. If neither a single `.apk` nor a mergeable bundle is
-found, the pipeline aborts (a zero-APK acquisition is a **failed acquisition**, not a pass).
+gplaydl lands loose splits named `<pkg>-<vc>.apk` / `<pkg>-<vc>-<split>.apk` directly in the
+output dir — the same `$OUT/raw` directory merge handles them. `APKEDITOR_JAR` overrides the jar
+path. If neither a single `.apk` nor a mergeable bundle is found, the pipeline aborts (a zero-APK
+acquisition is a **failed acquisition**, not a pass).
 
 ## Integrity
 
 Every acquisition records `sha256` (`apk.sha256`) and version (`apk.version` via `aapt dump
-badging`) — the evidence anchor the engagement and any re-test key off.
+badging`) — the evidence anchor the engagement and any re-test key off. On the gplaydl lane the
+download itself is additionally self-verifying: each artifact is hashed against Play's declared
+digest at download time, so a corrupted or tampered-in-transit file fails the download rather
+than silently landing in `raw/`.
 
 ## iOS — ipatool (static-only)
 

@@ -103,7 +103,7 @@ Pair with `Wireshark` for deep packet inspection.
 
 ## Common pitfalls
 
-- **strace slows the target.** Some timing-sensitive code (game loops, real-time stuff) breaks under strace overhead. Use `perf` or eBPF (`bpftrace`) for low-overhead alternatives.
+- **strace slows the target.** Some timing-sensitive code (game loops, real-time stuff) breaks under strace overhead. Use `perf` or eBPF (`bpftrace`) for low-overhead alternatives. Android TLS-layer plaintext capture via eBPF uprobes → [`../../../../mobile-security/reference/scenarios/android/advanced-ebpf-dynamic-2026.md`](../../../../mobile-security/reference/scenarios/android/advanced-ebpf-dynamic-2026.md).
 - **strace blocks threads.** Multi-threaded programs serialize through ptrace; performance and behavior may differ.
 - **Static binary, no ltrace.** ltrace traces PLT calls, but statically linked binaries have no PLT — ltrace shows nothing useful. Use strace instead, or add Frida.
 - **System call wrappers.** `printf` in libc may be a single `write` syscall — strace doesn't show "printf"; ltrace does.

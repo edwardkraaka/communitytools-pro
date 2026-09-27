@@ -85,3 +85,4 @@ Treat every recovered key as live until proven otherwise — build-time-injected
 - [android-static-analysis.md](../../android-static-analysis.md) — stock-Android SAST around the RN app (manifest, exported components, storage, crypto, signing).
 - [android-dynamic-analysis.md](../../android-dynamic-analysis.md) — interception + dual-layer pinning bypass (native + JS), runtime storage/secret dump, RASP bypass.
 - [methodology.md](../../methodology.md) — phase flow and the client→API pivot for endpoints recovered from the bundle.
+- [advanced-static-surfaces-2026.md](advanced-static-surfaces-2026.md) · [advanced-ebpf-dynamic-2026.md](advanced-ebpf-dynamic-2026.md) — the 2026 technique scenarios (RN CVE lanes, FCM handlers; kernel-side capture that sidesteps JS-layer pinning).

@@ -20,7 +20,7 @@ It **acquires and prepares**; the actual MASVS testing is [`mobile-security`](..
 
 | Script | Does |
 |--------|------|
-| [`apk-pipeline.sh`](../../scripts/apk-pipeline.sh) | One app: apkeep acquire → APKEditor merge (splits/XAPK) → apktool + jadx → `triage.md` → optional MobSF |
+| [`apk-pipeline.sh`](../../scripts/apk-pipeline.sh) | One app: acquire (gplaydl authenticated Play preferred, apkeep mirror default) → APKEditor merge (splits/XAPK) → apktool + jadx → `triage.md` → optional MobSF |
 | [`apk-farm.sh`](../../scripts/apk-farm.sh) | Batch a `packages.txt` through the pipeline (bounded-parallel, resumable) → `farm-index.json` |
 | [`ipa-pipeline.sh`](../../scripts/ipa-pipeline.sh) | iOS **static-only**: ipatool download → Info.plist/entitlements/strings (FairPlay decrypt is manual) |
 
@@ -33,9 +33,10 @@ printf 'com.a\ncom.b\ncom.c\n' > packages.txt
 scripts/apk-farm.sh packages.txt engagement 3
 ```
 
-Optional env (all off by default): `GOOGLE_PLAY_EMAIL` + `GOOGLE_PLAY_AAS_TOKEN` (authenticated
-Play), `MOBSF_URL` + `MOBSF_KEY` (MobSF scan), `APPLE_ID` + `APPLE_PASSWORD` (ipatool). Real values
-live only in the gitignored `.env` — see [`reference/acquisition.md`](reference/acquisition.md).
+Optional env (all off by default): `GPLAYDL_API_KEY` (authenticated Play via gplaydl — preferred),
+`GOOGLE_PLAY_EMAIL` + `GOOGLE_PLAY_AAS_TOKEN` (legacy apkeep+AAS), `MOBSF_URL` + `MOBSF_KEY`
+(MobSF scan), `APPLE_ID` + `APPLE_PASSWORD` (ipatool). Real values live only in the gitignored
+`.env` — see [`reference/acquisition.md`](reference/acquisition.md).
 
 ## Output layout (per app)
 
@@ -64,7 +65,7 @@ optional `mobile-surface.json` for coverage-mode engagements):
 
 ## Toolchain
 
-`apkeep`, `jadx`, `apktool`, `androguard`, `ripgrep`, `APKEditor.jar`, `ipatool`, **`hermes-dec`**
+`apkeep`, `jadx`, `apktool`, `androguard`, `ripgrep`, `APKEditor.jar`, `ipatool`, **`gplaydl`**, **`hermes-dec`**
 ship in the `kali-claude` image (baked by `scripts/install-mobile-toolchain.sh`, invoked from
 `scripts/kali-claude-setup.sh`); **MobSF runs as a sibling container** launched by
 [`scripts/mobsf-up.sh`](../../scripts/mobsf-up.sh) (digest-pinned, docker0-only binding, stable

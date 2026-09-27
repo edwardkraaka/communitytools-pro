@@ -122,7 +122,7 @@ uber-apk-signer -a aligned.apk        # or: apksigner sign --ks debug.ks aligned
 adb install -r aligned.apk            # then run the PROTECTED flow and show it still works
 ```
 
-If the repackaged, re-signed app runs the sensitive flow, anti-tamper (MASVS-RESILIENCE-2) is ineffective. **Attestation is only real if the SERVER verifies the Play Integrity verdict + nonce** — a client-only `integrity.token` call that never round-trips to a server that checks it is bypassable; confirm server-side verification before crediting the control (MASVS-RESILIENCE-1). `MEETS_STRONG_INTEGRITY` requires genuine hardware — treat a rooted/re-signed test device as a separately-documented trust boundary rather than assumed to pass.
+If the repackaged, re-signed app runs the sensitive flow, anti-tamper (MASVS-RESILIENCE-2) is ineffective. **Attestation is only real if the SERVER verifies the Play Integrity verdict + nonce** — a client-only `integrity.token` call that never round-trips to a server that checks it is bypassable; confirm server-side verification before crediting the control (MASVS-RESILIENCE-1). For the relay technique that validates the server's verdict+nonce binding end-to-end, see [scenarios/android/advanced-ebpf-dynamic-2026.md](scenarios/android/advanced-ebpf-dynamic-2026.md). `MEETS_STRONG_INTEGRITY` requires genuine hardware — treat a rooted/re-signed test device as a separately-documented trust boundary rather than assumed to pass.
 
 ## Dynamic code analysis (decrypted branches / no-symbol compares)
 
@@ -147,5 +147,6 @@ For inlined / no-PLT comparisons that `frida-trace` can't anchor, use **Stalker*
 - [`methodology.md`](methodology.md) · [`android-static-analysis.md`](android-static-analysis.md) — the tiers this feeds from.
 - [`scenarios/android/native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md) — no-device `strcmp`/`memcmp` extraction when Frida is blocked.
 - [`scenarios/android/react-native-hermes.md`](scenarios/android/react-native-hermes.md) · [`flutter-aot-reversing.md`](flutter-aot-reversing.md) — stack-specific pinning/storage deltas.
+- [`scenarios/android/advanced-ebpf-dynamic-2026.md`](scenarios/android/advanced-ebpf-dynamic-2026.md) — kernel-side eBPF capture (pinning moot), intent fuzzing, GUI agents, attestation relay — the 2026 dynamic lanes.
 - [`../../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md`](../../reverse-engineering/reference/scenarios/static-analysis/unity-il2cpp-recipe.md) · [`../../reverse-engineering/reference/scenarios/obfuscation/packed-binaries.md`](../../reverse-engineering/reference/scenarios/obfuscation/packed-binaries.md) — Unity dumps and packer/anti-debug handling for hook targets.
 - Validation of runtime claims → [`../../coordination/reference/VALIDATION.md`](../../coordination/reference/VALIDATION.md); reporting → [`../../transilience-report-style/SKILL.md`](../../transilience-report-style/SKILL.md).

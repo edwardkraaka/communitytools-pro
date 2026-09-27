@@ -6,7 +6,7 @@
 #   ./apk-farm.sh packages.txt [out-root] [parallelism]
 #
 # packages.txt: one package name per line; blank lines and #comments ignored.
-# Inherits the same optional env as apk-pipeline.sh (GOOGLE_PLAY_*, MOBSF_URL/KEY, ...).
+# Inherits the same optional env as apk-pipeline.sh (GPLAYDL_*, GOOGLE_PLAY_* legacy, APK_SOURCE_FALLBACK, MOBSF_URL/KEY, ...).
 # Only run against applications you are authorized to test.
 set -euo pipefail
 
