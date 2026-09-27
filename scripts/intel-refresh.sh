@@ -36,7 +36,7 @@ SKILL="$REPO/skills/threat-intel"
 STAMP=$(date +%Y%m%d-%H%M%S)
 STAGE="$STACK/intel-research/refresh-$STAMP"
 LOG="$STAGE/refresh-run.log"
-CLAUDE_TIMEOUT=3600
+CLAUDE_TIMEOUT=5400  # observed ~8-10 min per section × 6 + overhead; GLM-5.3 + switch adds cold-start
 LINE_CAP=190
 
 # deterministic apply order; SECTIONS maps file -> its pinned H2 header
