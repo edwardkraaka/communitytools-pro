@@ -64,7 +64,7 @@ Each applies to **every** app — there is no flag that turns one off. An app th
 
 ### MAS-CODE-SECRETS
 *Secrets recoverable from the artifact.* `static`: strings, resources, `BuildConfig`, the JS/AOT bundle, native `.so` data. A live credential found here is scored on what it unlocks, so validate it against the service before assigning severity — and note that a decompiled bundle is also where the backend endpoint inventory comes from.
-→ [`react-native-hermes.md`](scenarios/android/react-native-hermes.md), [`flutter-aot-reversing.md`](flutter-aot-reversing.md), [`native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md), [`methodology.md`](methodology.md) (client→API pivot)
+→ [`react-native-hermes.md`](scenarios/android/react-native-hermes.md), [`flutter-aot-reversing.md`](flutter-aot-reversing.md), [`native-lib-host-extraction.md`](scenarios/android/native-lib-host-extraction.md), [`scenarios/android/advanced-static-surfaces-2026.md`](scenarios/android/advanced-static-surfaces-2026.md) (mapping.txt, white-label keys), [`methodology.md`](methodology.md) (client→API pivot)
 
 ### MAS-RESILIENCE-ROOT
 *Root/jailbreak and anti-debug.* `runtime`. As with pinning: `apk_control_wiring.py` can prove a detector is **shipped but unwired** (`shipped_but_unwired`) — a positive from static evidence. The negative ("the gate is effective") requires a bypass attempt that failed, and an attempt that failed is a legitimate, reportable outcome. Do not score a bypass you did not run.
@@ -72,7 +72,7 @@ Each applies to **every** app — there is no flag that turns one off. An app th
 
 ### MAS-RESILIENCE-INTEGRITY
 *Signing and repackaging.* `static`: `apksigner verify -v` for the scheme set and the signer identity (a release artifact carrying `CN=Android Debug` is a finding), Janus applicability, and whether repack+resign is accepted by the backend.
-→ [`android-static-analysis.md`](android-static-analysis.md) §8, [`ios-static-analysis.md`](ios-static-analysis.md) (binary hardening, entitlements)
+→ [`android-static-analysis.md`](android-static-analysis.md) §8, [`scenarios/android/advanced-ebpf-dynamic-2026.md`](scenarios/android/advanced-ebpf-dynamic-2026.md) (capture under anti-instrumentation), [`ios-static-analysis.md`](ios-static-analysis.md) (binary hardening, entitlements)
 
 ### MAS-PRIVACY-DATA
 *Declared-vs-actual collection.* Permission over-ask, tracker/SDK inventory, and what actually leaves the device versus what the store listing and privacy policy declare. `runtime`: the declaration half is static, but the load-bearing claim — what actually egresses — is not.
