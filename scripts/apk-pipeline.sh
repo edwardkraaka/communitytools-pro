@@ -6,8 +6,17 @@
 #   ./apk-pipeline.sh com.example.app [output-dir]
 #
 # Optional env:
-#   GOOGLE_PLAY_EMAIL / GOOGLE_PLAY_AAS_TOKEN  — use Google Play instead of APKPure
-#   APKEEP_SOURCE     — override apkeep source (default: apk-pure; or google-play, f-droid)
+#   GPLAYDL_API_KEY   — gplaydl dispenser key: authenticated Google Play, the PREFERRED
+#                       source (current build, SHA-256 verified, split APKs). Fully
+#                       overrides the host's ~/.config/gplaydl/config.json.
+#   GPLAYDL_ARCH      — gplaydl device arch: arm64|armv7|x86|x86_64|tv (default arm64;
+#                       use x86_64 when acquiring for an emulator image)
+#   GPLAYDL_EXTRAS    — "1" to also fetch OBB/asset packs (default off: GB-scale, unused
+#                       by the static pipeline; APKEditor's dir-merge expects APKs only)
+#   GOOGLE_PLAY_EMAIL / GOOGLE_PLAY_AAS_TOKEN  — LEGACY apkeep+AAS path, used only when
+#                       gplaydl is unavailable (the OAuth mint broke upstream 2026-09)
+#   APKEEP_SOURCE     — override the apkeep mirror source (default: apk-pure; or f-droid)
+#   APK_SOURCE_FALLBACK — "1" to accept a mirror build when both Play paths fail
 #   APKEDITOR_JAR     — path to APKEditor.jar (default: /opt/APKEditor.jar) for split/XAPK merge
 #   MOBSF_URL         — e.g. http://172.17.0.1:8000  (docker0 IP as seen from a default-bridge
 #                       docker-hop container; enables the MobSF static scan — see scripts/mobsf-up.sh)
@@ -34,15 +43,40 @@ done
 have aapt || echo "[!] aapt not found — apk.version anchor will be empty" >&2
 
 # --- Acquire ------------------------------------------------------------------
-# Google Play (authenticated) is PREFERRED when creds are present: it serves the CURRENT
-# build for a real device profile and can reach apps mirrors do not carry. APKPure is the
-# credential-free default — fast, but may serve an OLDER build and misses unlisted/rare apps.
+# Source preference: gplaydl (authenticated Play via the dispenser key — current build,
+# SHA-256 verified by the tool against Play's declared hashes, split APKs) > apkeep+AAS
+# (LEGACY: pre-minted tokens still work, but the EmbeddedSetup OAuth mint broke upstream
+# in 2026-09) > mirror (APKPure/F-Droid: credential-free default, may serve an OLDER
+# build). A mirror is only ever an OPT-IN fallback (APK_SOURCE_FALLBACK=1) so a stale
+# build is never silently accepted; with no credentials the mirror default is unchanged.
 raw_has_artifact() {
   compgen -G "$OUT/raw/*.apk" >/dev/null || compgen -G "$OUT/raw/*.xapk" >/dev/null \
     || compgen -G "$OUT/raw/*.apkm" >/dev/null || compgen -G "$OUT/raw/*.apks" >/dev/null
 }
-gplay_fetch() {
-  echo "[*] Acquiring ${PKG} via Google Play (authenticated, device=${GOOGLE_PLAY_DEVICE:-px_3a})..."
+gplaydl_available() {
+  command -v gplaydl >/dev/null 2>&1 \
+    && { [[ -n "${GPLAYDL_API_KEY:-}" ]] || [[ -r "${HOME:-/root}/.config/gplaydl/config.json" ]]; }
+}
+gplaydl_fetch() {
+  # OBB/asset-pack extras default OFF: GB-scale and unused by the static pipeline
+  # (GPLAYDL_EXTRAS=1 includes them; note APKEditor's dir-merge expects APKs only).
+  local noextras="--no-extras"
+  [[ "${GPLAYDL_EXTRAS:-0}" == "1" ]] && noextras=""
+  echo "[*] Acquiring ${PKG} via gplaydl (authenticated Play, arch=${GPLAYDL_ARCH:-arm64}, extras=${GPLAYDL_EXTRAS:-0})..."
+  # 3 attempts (vs mirror_fetch's 5): Play-side failures are key/rate/app-availability
+  # issues that rarely self-heal — not the flaky-index pattern behind the mirror loop.
+  local attempt
+  for attempt in 1 2 3; do
+    gplaydl download "$PKG" -o "$OUT/raw" ${GPLAYDL_ARCH:+-a "$GPLAYDL_ARCH"} ${noextras:+"$noextras"} \
+      && return 0
+    echo "[!] gplaydl attempt ${attempt}/3 failed — retrying in ${attempt}0s..." >&2
+    raw_has_artifact && return 0   # partial success (some splits landed) is success
+    sleep "${attempt}0"
+  done
+  return 1
+}
+gplay_fetch() {  # LEGACY: apkeep + a pre-minted AAS token (OAuth mint broken 2026-09)
+  echo "[*] Acquiring ${PKG} via apkeep AAS (legacy, device=${GOOGLE_PLAY_DEVICE:-px_3a})..."
   apkeep -a "$PKG" -d google-play \
     -e "$GOOGLE_PLAY_EMAIL" -t "$GOOGLE_PLAY_AAS_TOKEN" \
     -o "device=${GOOGLE_PLAY_DEVICE:-px_3a},split_apk=1,include_additional_files=1" "$OUT/raw"
@@ -62,7 +96,24 @@ mirror_fetch() {
   done
   return 1
 }
-if [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
+if gplaydl_available; then
+  gplaydl_fetch || true
+  if ! raw_has_artifact && [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
+    echo "[!] gplaydl returned nothing — retrying authenticated Play via apkeep+AAS (legacy)..." >&2
+    gplay_fetch || true
+  fi
+  if ! raw_has_artifact; then
+    if [[ "${APK_SOURCE_FALLBACK:-0}" == "1" ]]; then
+      echo "[!] Authenticated Play returned nothing — falling back to a mirror (may be an OLDER build)." >&2
+      mirror_fetch || true
+    else
+      echo "[!] Authenticated Play returned nothing. The linked account may not have acquired the app," >&2
+      echo "    or it is geo/device-restricted or paid. Free-install it once on that account, re-run the" >&2
+      echo "    gplaydl pairing (mobile-app-farm/reference/acquisition.md), or set" >&2
+      echo "    APK_SOURCE_FALLBACK=1 to accept a mirror build." >&2
+    fi
+  fi
+elif [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
   gplay_fetch || true
   if ! raw_has_artifact; then
     if [[ "${APK_SOURCE_FALLBACK:-0}" == "1" ]]; then
