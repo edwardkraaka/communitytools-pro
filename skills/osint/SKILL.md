@@ -36,7 +36,10 @@ Intelligence gathering (passive-first, active-capable) focused on code repositor
 ### 5. Code Intelligence
 - Extract API endpoints, auth patterns, internal service names
 - Review Dockerfiles, CI configs, IaC for infra details
-- Check dependency files for version-specific CVE candidates
+- Extract dependency/version signals: JS bundle comments, sourcemaps, `package.json`/lockfile leaks, Dockerfile/CI references, wallet-app and SDK versions — feeds `WEB-A06-COMPONENTS` and the TI triage below
+- Run `python3 tools/nvd-lookup.py <CVE>` and `python3 tools/kev-lookup.py <CVE>` per version-specific candidate (freeze verdict operands into `artifacts/nvd-cache/` per the engagement determinism contract)
+- Consult the `threat-intel` skill ([`skills/threat-intel/reference/target-triage.md`](../threat-intel/reference/target-triage.md)) and run its triage over the fingerprinted stack
+- Write the numbered TI hypothesis list with per-hypothesis exploit sketches into `session-memory.md` (new **TI Hypotheses** section) and summarize it in the OSINT report — this is the active phase's hunt handoff
 
 ## Output
 
@@ -65,3 +68,4 @@ session-memory.md (Access & Credentials)  # Validated creds handed to the engage
 ## Reference
 
 - `reference/repository-recon.md` - Dorks, tool commands, secret patterns, credential-validation probes, workflow
+- `../threat-intel/reference/target-triage.md` - TI triage procedure run over this phase's stack fingerprint (outputs the TI Hypotheses handoff)
