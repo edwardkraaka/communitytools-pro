@@ -26,6 +26,10 @@
 # Timer (Stage 4):  threat-intel-refresh.timer, weekly.
 set -euo pipefail
 
+# systemd timers run with a minimal PATH that lacks /root/.local/bin — the
+# claude CLI lives there; make it resolvable regardless of caller
+command -v claude >/dev/null 2>&1 || export PATH="$PATH:/root/.local/bin"
+
 STACK=/root/pentest-stack
 REPO=/root/communitytools
 SKILL="$REPO/skills/threat-intel"
