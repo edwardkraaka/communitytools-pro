@@ -33,6 +33,7 @@ Skills consumed by the cloud-agent task specifications under [`projects/rfp-3.2/
 | [`reconnaissance`](reconnaissance/SKILL.md) | Subdomain, port, endpoint, API surface mapping | First batch of any web/network engagement | techstack-identification |
 | [`osint`](osint/SKILL.md) | Repo enumeration, secret scanning, employee footprint | Pre-engagement intel, public-source analysis | reconnaissance |
 | [`techstack-identification`](techstack-identification/SKILL.md) | Tech-stack inference from public signals | Need to choose attack class from observed surface | reconnaissance, osint |
+| [`threat-intel`](threat-intel/SKILL.md) | Standing CVE/exploit intel digest + incident anatomy + target-triage → ranked hunt hypotheses | Consult at OSINT phase 5 and before the first active batch; crypto targets mandatory | osint, techstack-identification, blockchain-security |
 
 ## Web Application
 

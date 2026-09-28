@@ -18,6 +18,10 @@ Skip when: clear next experiment exists with concrete signal from the previous b
 
 ## Three Sources
 
+### 0. Threat-Intel Digest (consult first)
+
+Read [`skills/threat-intel/SKILL.md`](../../threat-intel/SKILL.md) + the ONE most-relevant reference file for the current surface (e.g., [recent-incidents.md](../../threat-intel/reference/recent-incidents.md) for crypto targets, [exploited-cve-classes.md](../../threat-intel/reference/exploited-cve-classes.md) for a version-fingerprinted stack). Convert every digest match — version hit, incident-pattern precedent, precursor signature — into RESEARCH_BRIEF lines tagged `[ti]`. Digest files are local reads: they cost no research budget.
+
 ### 1. Model Knowledge
 
 Brainstorm from training data. Ask yourself:
@@ -66,6 +70,7 @@ RESEARCH_BRIEF:
 - [model] Hypothesis: <what + why it might work>
 - [web] Technique: <name> -- <key payload/pattern> (src: <URL>)
 - [skills] Untried: <attack category> -- relevant because <reason>
+- [ti] Intel match: <version/incident-pattern match> -- exploit sketch (src: threat-intel digest section)
 - [chain] Idea: <A -> B -> C> combining findings from above
 - [web] CVE-YYYY-NNNNN: <version affected, exploit type> (src: <URL>)
 - [wildcard] <hypothesis no skill prescribes> — <reasoning>

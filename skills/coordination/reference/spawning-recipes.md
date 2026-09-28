@@ -208,6 +208,10 @@ TaskOutput(task_id=<id_C>, block=True, timeout=60000)
 
 Width 1-2 is correct when executor B's prompt would embed executor A's result — parallelize only hypotheses that don't feed each other.
 
+### First-batch composition: exploit lanes before coverage sweeps
+
+Front-load the first batch of the loop with the lanes most likely to yield validated findings fast — the full-TCP port battery on every in-scope IP and depth probes on odd-port internal-stack listeners — ahead of mechanical passive-coverage batteries (header sweeps, version fingerprinting, negative-coverage probes). Coverage-first batch-1 sequencing pushes the first validated finding past the 30% engagement-runtime TTFF gate (time-to-first-finding is scored on *validation-materialization* time: hypothesis → evidence → materialization → validator verdict — not discovery time), which forces a delivery exception: a long deterministic sweep contributes no scoreable evidence until its first candidate reaches a validator. **Intel-matched lanes lead.** When the OSINT handoff (`session-memory.md` TI Hypotheses) or the threat-intel digest names version- or pattern-matched hypotheses for the asset, those hypotheses take the first batch's exploit lanes — ahead of both mechanical coverage batteries and generic recon. Mark each digest-seeded hypothesis `[ti]` in attack-chain.md's Theory section (same convention as `[wildcard]`) so experiments.md rows trace back to the intel source; hypothesis generation from the digest consumes the coordinator's P2 budget, not additional missions.
+
 ### Interleaved per-candidate validation (the instant it's materialized)
 
 ```python

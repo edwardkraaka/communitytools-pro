@@ -168,6 +168,7 @@ Port scanning • DNS attacks • SMB/NetBIOS • IPv6 • VLAN hopping • MITM
 | Skill | Scenarios? | Notes |
 |-------|------------|-------|
 | `cryptography` | No `scenarios/` | Reference files cover lattice, AGCD, linear-collapse, padding-oracle, signature forgery, secret-sharing recovery. **Gap:** split into per-technique scenarios. |
+| `threat-intel` | No `scenarios/` | Reference files carry the intel digest: sources, incident anatomy, exploited-CVE classes, hunter methodology, LLM SOTA, target triage, research brief, refresh log. Not an attack-class catalog — consumed as intel input to hypothesis generation. |
 | `reverse-engineering` | No `scenarios/` | Reference files cover ELF/PE, custom-VM bytecode, callfuscation, MBA, anti-debug. **Gap:** scenario split. |
 | `mobile-security` | Yes (4 Android scenarios) | React-Native/Hermes, native-lib-host-extraction, plus the 2026 pair: advanced-ebpf-dynamic (ecapture/fuzzers/GUI agents/relay) and advanced-static-surfaces (AAB-CT, SDK IPC, FCM, WASM). **Gap:** iOS Objection scenario. |
 | `ai-threat-testing` | No `scenarios/` | Reference files cover OWASP LLM Top 10. **Gap:** scenario split per LLM01-LLM10. |

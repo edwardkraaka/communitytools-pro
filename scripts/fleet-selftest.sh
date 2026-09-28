@@ -14,6 +14,7 @@
 #   8. MCP registration merge: state override > image default, opt-out, non-fatal
 #   9. phase-3 stitch: report ARMS the stitch phase; done gates on
 #      reports/monetization-chain.md (disjoint from the phase-2 matcher)
+#  10. intel-first kickoff mandates render + threat-intel at all three layers
 set -uo pipefail   # NOT -e: the suite itself must run every check
 PASS=0; FAIL=0
 ok()  { echo "  PASS $1"; PASS=$((PASS+1)); }
@@ -318,6 +319,35 @@ EV=$(jq -r '.last_event // ""' "$TD/flt/testrun/state/tg.json" 2>/dev/null)
 [ "$ST" = "done" ] && case "$EV" in monetization*) ok "chain file marks done (monetization event)";; *) bad "done but wrong event: $EV";; esac \
   || bad "chain file did not mark done (status=$ST): $(cat "$TD/outB")"
 rm -rf "$TD"
+
+# --------------------------------------- 10. intel-first mandates (threat-intel)
+note "10. threat-intel kickoff mandates + three-layer skill presence"
+# render, not grep-the-source: a later edit could decouple the printf text from
+# what agent containers actually receive
+OS_MSG=$(bash -c "source $STACK/fleet-lib.sh; osint_kickoff https://x.example tg")
+S2_MSG=$(bash -c "source $STACK/fleet-lib.sh; stage2_message https://x.example tg '' ''")
+printf '%s' "$OS_MSG" | grep -qF 'threat-intel' && printf '%s' "$OS_MSG" | grep -qF 'TI Hypotheses' \
+  && ok "osint_kickoff mandates the threat-intel triage handoff" \
+  || bad "osint_kickoff lost the threat-intel / TI Hypotheses mandate"
+printf '%s' "$S2_MSG" | grep -qF 'Hunt first' && printf '%s' "$S2_MSG" | grep -qF 'TI Hypotheses' \
+  && printf '%s' "$S2_MSG" | grep -qF 'threat-intel' \
+  && ok "stage2_message leads with the hunt-first mandate" \
+  || bad "stage2_message lost the Hunt first / TI Hypotheses / threat-intel mandate"
+# three layers: canonical (git) + layer A (/workspace/.claude/skills) + layer B
+# (/workspace/skills) — all must exist for the mandate's container paths to
+# resolve, and all three must be byte-identical (drift = stale digest)
+TI_SKILL=/root/communitytools/skills/threat-intel/SKILL.md
+TI_A=/root/communitytools/projects/pentest/.claude/skills/threat-intel/SKILL.md
+TI_B=/root/communitytools/projects/pentest/skills/threat-intel/SKILL.md
+if [ -f "$TI_SKILL" ] && [ -f "$TI_A" ] && [ -f "$TI_B" ]; then
+  ok "threat-intel SKILL.md present at all three layers"
+  TI_CK=$(md5sum "$TI_SKILL" | cut -d' ' -f1)
+  [ "$(md5sum "$TI_A" | cut -d' ' -f1)" = "$TI_CK" ] && [ "$(md5sum "$TI_B" | cut -d' ' -f1)" = "$TI_CK" ] \
+    && ok "three layer copies byte-identical" \
+    || bad "threat-intel layer drift — run scripts/sync-pentest-mirror.sh"
+else
+  bad "threat-intel missing a layer copy (canonical / .claude mirror / skills mirror)"
+fi
 
 echo "────────"
 echo "selftest: $PASS passed, $FAIL failed"

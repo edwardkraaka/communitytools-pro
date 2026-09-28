@@ -12,6 +12,8 @@ description: Smart contract security testing and blockchain CTF exploitation. Co
 4. Deploy exploit contracts via web3.py or cast/forge
 5. Verify win condition (isSolved/flag endpoint)
 
+For crypto/web3 company targets (not CTFs): consult [Recent Exploit Patterns](reference/recent-exploit-patterns.md) plus the threat-intel skill's digest BEFORE choosing attack lanes — recent incident anatomy (wallet infra, custody roles, dependency supply chain, bridge config) is the leading edge; the vulnerability table below is the completion layer.
+
 ## Blockchain CTF Challenge Pattern
 ```bash
 # Get connection info
@@ -95,6 +97,7 @@ w3.eth.send_raw_transaction(signed.raw_transaction)
 - [Delegatecall Attacks](reference/delegatecall-attacks.md)
 - [CREATE Address Prediction](reference/create-address-prediction.md)
 - [Storage Layout](reference/storage-layout.md)
+- [Recent Exploit Patterns](reference/recent-exploit-patterns.md)
 
 ## Critical Rules
 - Always read storage before attacking (private vars are readable on-chain)
