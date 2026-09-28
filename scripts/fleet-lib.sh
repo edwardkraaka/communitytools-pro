@@ -246,6 +246,44 @@ osint_artifact() {  # → path or empty; never nonzero (set -e callers assign it
   return 0
 }
 
+mobile_android_present() {  # <mobile-surface.json path> → 0 iff android verdict=present
+  # Verdict gate for the stage-2 mobile lane. Never nonzero on bad JSON —
+  # a corrupt/unreadable file is treated as not-present (web-only stage 2),
+  # the same fail-safe direction as every other artifact helper.
+  [ -n "${1:-}" ] && [ -f "$1" ] || return 1
+  [ "$(jq -r '.android.verdict // "unclear"' "$1" 2>/dev/null)" = "present" ]
+}
+
+mobile_artifact() {  # → mobile-surface.json path or empty; never nonzero
+  # The OSINT-phase mobile verdict (session-written, schema pinned in
+  # osint_kickoff): android.verdict=present arms the stage-2 mobile lane.
+  # Lookup mirrors osint_artifact: tag-named dirs in both layouts, then
+  # brand-named dirs via recorded transcript cwds. Explicit for-loop over the
+  # glob — multi-match must never fail with '[ -e f1 f2 ] too many arguments'.
+  local d f base
+  for d in "$WS" "$WS/projects/pentest"; do
+    for f in "$d"/*_"$1"_osint/reports/mobile-surface.json; do
+      [ -f "$f" ] && { echo "$f"; return 0; }
+    done
+  done
+  while IFS= read -r base; do
+    [ -z "$base" ] && continue
+    for d in "$WS" "$WS/projects/pentest"; do
+      [ -f "$d/$base/reports/mobile-surface.json" ] && { echo "$d/$base/reports/mobile-surface.json"; return 0; }
+    done
+  done < <(tag_engagement_dirs "$1" "_osint")
+  return 0
+}
+
+mobile_summary() {  # <mobile-surface.json path|empty> → one-line log verdict
+  [ -n "${1:-}" ] || { echo "mobile: none (web-only)"; return 0; }
+  jq -r '"mobile: " + (.android.verdict // "unclear") +
+         (if ((.android.packages // []) | length) > 0
+          then " (" + ((.android.packages)[0:2] | join(", ")) + ")"
+          else "" end)' "$1" 2>/dev/null || echo "mobile: unreadable"
+  return 0
+}
+
 active_artifact() {
   # DONE = a report DELIVERABLE in this tag's engagement reports/ dir:
   #   (a) any .pdf (renderer output is always the deliverable), or
@@ -368,12 +406,12 @@ osint_kickoff() {  # <url> <tag>
   # the slot on another target's engagement. Never leave "the engagement directory"
   # ambiguous again.
   local dir="/workspace/projects/pentest/$(date +%Y%m%d)_${2}_osint"
-  printf 'Use the osint skill: run a complete passive OSINT engagement on %s. Create your engagement directory %s (this exact directory — it is yours; do NOT work in or modify any other engagement directory) and write everything there. Follow the coordination skill OUTPUT_STRUCTURE. Validate every discovered credential (single-shot read-only identity calls) and hand them off in session-memory.md. Consult the threat-intel skill (read /workspace/.claude/skills/threat-intel/SKILL.md): fingerprint the org'\''s stack (vendors, frameworks, libraries, wallet/key infrastructure), cross-match every identified technology and dependency version against the skill'\''s intel digest, and record each match as a numbered hunt hypothesis with its exploit sketch in a TI Hypotheses section of session-memory.md — the active phase executes these first. You are running unattended: never ask questions and never wait for user input. Always finish by writing reports/osint_report.md inside %s.' "$1" "$dir" "$dir"
+  printf 'Use the osint skill: run a complete passive OSINT engagement on %s. Create your engagement directory %s (this exact directory — it is yours; do NOT work in or modify any other engagement directory) and write everything there. Follow the coordination skill OUTPUT_STRUCTURE. Validate every discovered credential (single-shot read-only identity calls) and hand them off in session-memory.md. Consult the threat-intel skill (read /workspace/.claude/skills/threat-intel/SKILL.md): fingerprint the org'\''s stack (vendors, frameworks, libraries, wallet/key infrastructure), cross-match every identified technology and dependency version against the skill'\''s intel digest, and record each match as a numbered hunt hypothesis with its exploit sketch in a TI Hypotheses section of session-memory.md — the active phase executes these first. MOBILE-SURFACE CHECK (bounded, mandatory): determine whether this org publishes a mobile app — crawl the site for store-listing links (play.google.com/store/apps/details?id=…, apps.apple.com), direct-APK hrefs (*.apk served by the target itself), /.well-known/assetlinks.json, and app-store/news search by the org name. First write reports/mobile-surface.json BEFORE osint_report.md (write it in every case, even an absent or unclear verdict) using exactly: {"android":{"verdict":"present|absent|unclear","packages":["com.example.app"],"direct_apk":["https://target.example/app.apk"],"evidence":[{"url":"source-url","note":"why"}]},"ios":{"verdict":"present|absent|unclear","app_ids":["id123456"],"evidence":[{"url":"source-url","note":"why"}]}}. verdict=present requires evidence — a store package id, a target-served .apk URL, or assetlinks.json content; a blog mention alone is absent or unclear. The active phase acquires and analyzes the Android app ONLY on verdict=present, so this JSON is the mobile handoff. You are running unattended: never ask questions and never wait for user input. Always finish by writing reports/osint_report.md inside %s.' "$1" "$dir" "$dir"
 }
 
-stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path]
-  local url=$1 tag=$2 instr=$3 art="${4:-}"
-  local extra="" where
+stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path] [mobile-json-path|-]
+  local url=$1 tag=$2 instr=$3 art="${4:-}" mob="${5:-}"
+  local extra="" where mobpara=""
   [ -n "$instr" ] && extra=" Per-target instructions: $instr."
   if [ -n "$art" ]; then
     # exact path — company-named engagement dirs don't contain the tag
@@ -381,7 +419,14 @@ stage2_message() {  # <url> <tag> <instructions> [osint-artifact-path]
   else
     where="The OSINT report for this target already exists under projects/pentest/ — read the *_${tag}_osint engagement reports/osint_report.md and session-memory.md"
   fi
-  printf 'Use the pentest-engagement skill: run a full active penetration test on %s. %s first, including every validated credential. Hunt first: before breadth coverage, read the TI Hypotheses handed off in that session-memory.md and execute the intel-matched hypotheses as your first experiments (version-match exploits, incident-pattern replications per /workspace/.claude/skills/threat-intel/) — if none were handed off, form them by fingerprinting each asset'\''s stack against the threat-intel digest. The coverage matrix still completes; OWASP breadth is the completion layer, not the leading edge. If this is a crypto/web3 company, blockchain-security coverage is mandatory alongside the web classes. Drive every chain to real impact within RoE per the exploitation mandate: validate any newly discovered credentials single-shot, take injection findings to a bounded exfiltration proof, attempt a shell on every RCE-class finding, drive discovered SSH keys to a single-shot login attempt and wallet keys to a signed-message fund PoC (broadcast nothing, transfer nothing — the signature is the proof), pursue the end goal creatively — shell or box access by any path, admin/SSA access, sqli/data exfiltration, or financial harm — instead of stopping at detection, and quantify funds at risk for financial findings.%s Rules: active testing authorized; reversible writes on self-owned test accounts only; no DoS; no persistence; no credential brute force; egress already routes through the gluetun VPN netns already attached (verify the egress IP; never set up a VPN inside the container). You are running unattended: never wait for input; blockers become CIRs under reports/client-input-requests/. Always finish by writing the technical report in reports/.' "$url" "$where" "$extra"
+  # Mobile lane: armed ONLY by the OSINT-phase verdict (mobile-surface.json).
+  # "-" = caller explicitly says no JSON (log verbosity use); empty = no JSON
+  # found. Either way web-only stage 2. Bad JSON is treated as not-present —
+  # the verdict gate must never crash the injected message builder.
+  if [ -n "$mob" ] && [ "$mob" != "-" ] && mobile_android_present "$mob"; then
+    mobpara=" MOBILE LANE (mandatory — this target ships an Android app): acquire the primary app into your engagement directory with the farm pipeline — run /workspace/scripts/apk-pipeline.sh <package-name> <engagement-dir>/mobile/ (it resolves gplaydl from GPLAYDL_API_KEY first, then apkeep mirrors; /workspace/scripts/apk-farm.sh batches several). Analyze the acquired artifacts with the mobile-security skill (load /workspace/.claude/skills/mobile-security/SKILL.md — scenarios, MASVS map, toolchain) and /workspace/scripts/apk-farm.sh farm-index.json for triage. Fold validated mobile findings into the technical report and the coverage matrix under the existing MAS-* classes — mobile findings are findings, same deliverables; a failed acquisition (404, key exhausted, region block) becomes a CIR under reports/client-input-requests/, never a silent skip. Cap the lane: primary app plus at most ONE additional app (the widest-permission secondary); record any further packages from the OSINT surface JSON in the report as discovered-but-not-analyzed. If the pipeline fell back to a mirror build, note the source and the stale-build caveat in the report."
+  fi
+  printf 'Use the pentest-engagement skill: run a full active penetration test on %s. %s first, including every validated credential. Hunt first: before breadth coverage, read the TI Hypotheses handed off in that session-memory.md and execute the intel-matched hypotheses as your first experiments (version-match exploits, incident-pattern replications per /workspace/.claude/skills/threat-intel/) — if none were handed off, form them by fingerprinting each asset'\''s stack against the threat-intel digest. The coverage matrix still completes; OWASP breadth is the completion layer, not the leading edge. If this is a crypto/web3 company, blockchain-security coverage is mandatory alongside the web classes. Drive every chain to real impact within RoE per the exploitation mandate: validate any newly discovered credentials single-shot, take injection findings to a bounded exfiltration proof, attempt a shell on every RCE-class finding, drive discovered SSH keys to a single-shot login attempt and wallet keys to a signed-message fund PoC (broadcast nothing, transfer nothing — the signature is the proof), pursue the end goal creatively — shell or box access by any path, admin/SSA access, sqli/data exfiltration, or financial harm — instead of stopping at detection, and quantify funds at risk for financial findings.%s%s Rules: active testing authorized; reversible writes on self-owned test accounts only; no DoS; no persistence; no credential brute force; egress already routes through the gluetun VPN netns already attached (verify the egress IP; never set up a VPN inside the container). You are running unattended: never wait for input; blockers become CIRs under reports/client-input-requests/. Always finish by writing the technical report in reports/.' "$url" "$where" "$mobpara" "$extra"
 }
 
 stage3_message() {  # <url> <tag> <engagement-dir-host-path> — phase-3 stitch mandate
