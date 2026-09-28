@@ -349,6 +349,55 @@ else
   bad "threat-intel missing a layer copy (canonical / .claude mirror / skills mirror)"
 fi
 
+# --------------------------------------- 11. mobile-surface lane (apk handoff)
+note "11. mobile-surface lane: kickoff mandate, verdict gate, conditional paragraph"
+# 11a. render, not grep-the-source: kickoff must carry the detection mandate
+OS_MSG=$(bash -c "source $STACK/fleet-lib.sh; osint_kickoff https://x.example tg")
+printf '%s' "$OS_MSG" | grep -qF 'MOBILE-SURFACE CHECK' \
+  && printf '%s' "$OS_MSG" | grep -qF 'mobile-surface.json' \
+  && printf '%s' "$OS_MSG" | grep -qF 'verdict=present requires evidence' \
+  && ok "osint_kickoff mandates the mobile-surface check + JSON schema" \
+  || bad "osint_kickoff lost the mobile-surface mandate"
+# 11b. verdict gate: present/absent/corrupt — render cars, not source grep
+TD=$(mktemp -d)
+printf '%s\n' '{"android":{"verdict":"present","packages":["com.example.app"],"direct_apk":[],"evidence":[]}}' > "$TD/p.json"
+printf '%s\n' '{"android":{"verdict":"absent","packages":[],"direct_apk":[],"evidence":[]}}' > "$TD/a.json"
+printf 'corrupt{' > "$TD/c.json"
+GATE_P=$(bash -c "source $STACK/fleet-lib.sh; mobile_android_present '$TD/p.json'" && echo yes)
+GATE_A=$(bash -c "source $STACK/fleet-lib.sh; mobile_android_present '$TD/a.json'" || echo no)
+GATE_C=$(bash -c "source $STACK/fleet-lib.sh; mobile_android_present '$TD/c.json'" || echo no)
+[ "$GATE_P" = "yes" ] && [ "$GATE_A" = "no" ] && [ "$GATE_C" = "no" ] \
+  && ok "verdict gate: present passes, absent/corrupt fail-safe to web-only" \
+  || bad "verdict gate wrong (p=$GATE_P a=$GATE_A c=$GATE_C)"
+# 11c. conditional paragraph: present → MOBILE LANE with pipeline path; absent → none
+MSG_P=$(bash -c "source $STACK/fleet-lib.sh; stage2_message https://x.example tg '' '' '$TD/p.json'")
+MSG_A=$(bash -c "source $STACK/fleet-lib.sh; stage2_message https://x.example tg '' '' '$TD/a.json'")
+printf '%s' "$MSG_P" | grep -qF 'MOBILE LANE' \
+  && ok "stage2_message renders the mobile paragraph on present" \
+  || bad "present: mobile paragraph missing"
+printf '%s' "$MSG_A" | grep -qF 'MOBILE LANE' \
+  && bad "absent: mobile paragraph rendered anyway" \
+  || ok "stage2_message omits the mobile paragraph on absent"
+printf '%s' "$MSG_P" | grep -qF '/workspace/scripts/apk-pipeline.sh' \
+  && ok "mobile paragraph names the container-side pipeline path" \
+  || bad "mobile paragraph lacks /workspace/scripts/apk-pipeline.sh"
+# 11d. artifact reader on the fixture layouts (tag dir preferred, brand fallback)
+mkdir -p "$TD/ws/260928_100000_tg_osint/reports" "$TD/ws/projects/pentest/brandco_osint/reports" "$TD/kstate/tg/claude/projects/-workspace"
+printf '%s\n' '{"android":{"verdict":"present","packages":["com.example.app"],"direct_apk":[],"evidence":[]}}' > "$TD/ws/260928_100000_tg_osint/reports/mobile-surface.json"
+printf '%s\n' '{"cwd":"/workspace/projects/pentest/brandco_osint/recon"}' > "$TD/kstate/tg/claude/projects/-workspace/sid.jsonl"
+OUT=$(bash -c "source $STACK/fleet-lib.sh; WS='$TD/ws'; KALI_STATE='$TD/kstate'; mobile_artifact tg")
+case "$OUT" in
+  *tg_osint*mobile-surface.json) ok "mobile_artifact finds tag-layout dir" ;;
+  *) bad "mobile_artifact missed the tag-layout dir: $OUT" ;;
+esac
+printf '%s\n' '{"android":{"verdict":"present","packages":["com.brandco.app"],"direct_apk":[],"evidence":[]}}' > "$TD/ws/projects/pentest/brandco_osint/reports/mobile-surface.json"
+OUT=$(bash -c "source $STACK/fleet-lib.sh; WS='$TD/ws'; KALI_STATE='$TD/kstate'; mobile_artifact tg")
+case "$OUT" in
+  *tg_osint*mobile-surface.json) ok "mobile_artifact prefers the tag dir over the brand dir" ;;
+  *brandco*mobile-surface.json) bad "mobile_artifact returned the brand dir though a tag dir matched: $OUT" ;;
+  *) bad "mobile_artifact found neither dir: $OUT" ;;
+esac
+rm -rf "$TD"
+
 echo "────────"
-echo "selftest: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

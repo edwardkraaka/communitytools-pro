@@ -328,10 +328,11 @@ while :; do
               b2=$(transcript_bytes "$tag")
               if pane_idle "$c" && [ "$b1" = "$b2" ]; then
                 url=$(state_get "$RUNID" "$tag" '.url'); instr=$(state_get "$RUNID" "$tag" '.instructions')
-                msg=$(stage2_message "$url" "$tag" "$instr" "$art")
+                mob=$(mobile_artifact "$tag")
+                msg=$(stage2_message "$url" "$tag" "$instr" "$art" "$mob")
                 if inject_stage2 "$c" "$msg"; then
                   state_set "$RUNID" "$tag" ".status=\"active\" | .ts.injected=\"$(date -Is)\" | .injections+=1 | .last_event=\"stage2 injected\""
-                  log "ACTIVE  $tag — stage-2 injected (osint: $art)"
+                  log "ACTIVE  $tag — stage-2 injected (osint: $art; $(mobile_summary "$mob"))"
                   fleet_notify "$tag: OSINT done, active phase started"
                 else
                   log "INJECT-RETRY $tag — send-keys failed, retrying next poll"
