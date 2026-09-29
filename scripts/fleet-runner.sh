@@ -183,7 +183,7 @@ if [ "$DRY_RUN" = 1 ]; then
   IFS=$'\t' read -r t u i <<< "$(printf '%s\n' "$PARSED" | head -1)"
   stage2_message "$u" "$t" "$i" | fold -sw 100 | sed 's/^/  /'
   echo "── sample stage-3 message (stitch → reports/monetization-chain.md):"
-  stage3_message "$u" "$t" "$WS/projects/pentest/21000101_000000_${t}_active" | fold -sw 100 | sed 's/^/  /'
+  stage3_message "$u" "$t" "$WS/projects/pentest/260101_sample_${t}_active" | fold -sw 100 | sed 's/^/  /'
   echo "── colliding registry tags would error (pass --allow-collide to suffix); manual 3 never touched."
   exit 0
 fi

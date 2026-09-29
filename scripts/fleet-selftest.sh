@@ -15,6 +15,9 @@
 #   9. phase-3 stitch: report ARMS the stitch phase; done gates on
 #      reports/monetization-chain.md (disjoint from the phase-2 matcher)
 #  10. intel-first kickoff mandates render + threat-intel at all three layers
+#  11. mobile-surface lane: kickoff mandate, verdict gate, conditional paragraph
+#  12. multi-box control layer: box resolution, dispatch allowlist,
+#      hub pull-snippet decode, split dedupe + instruction preservation
 set -uo pipefail   # NOT -e: the suite itself must run every check
 PASS=0; FAIL=0
 ok()  { echo "  PASS $1"; PASS=$((PASS+1)); }
@@ -51,7 +54,7 @@ fi
 # ---------------------------------------------------------------- 3+4. runner fns
 note "3+4. runner exit contracts (simulated run dir — no live state touched)"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/registry"
-# the kelpdao condition: attempts=2, registry env WITHOUT the FLEET_RUN marker
+# the registry-without-marker condition: attempts=2, no FLEET_RUN marker
 cat > "$TD/state/mocktag.json" <<'J'
 {"tag":"mocktag","url":"https://mock.test","status":"launched-osint",
  "attempts":2,"last_event":"x","ts":{}}
@@ -107,20 +110,22 @@ sed -n '/<<'"'"'SEED'"'"'/,/^SEED$/p' "/root/pentest-stack/kali-resume-entrypoin
   && ok "entrypoint SEED block still seeds bypass-prompt skip" || bad "entrypoint SEED block lost the bypass-prompt key"
 rm -rf "$SD"
 
-# ------------------------------------------- 6. artifact matching (renzo class)
+# ------------------------------------------- 6. artifact matching (truncation class)
 note "6. osint_artifact resolves truncated names + subdir-only cwds"
 TD=$(mktemp -d); mkdir -p "$TD/state" "$TD/ws/projects/pentest"
-mkdir -p "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports"
-echo done > "$TD/ws/projects/pentest/260923_205806_renzo_osint/reports/osint_report.md"
-mkdir -p "$TD/kstate/renzoprotocol/claude/projects/-workspace"
+DEP6=260923_205806     # synthetic date stamp; refix below composes all dirs
+DEP6DIR="$TD/ws/projects/pentest/${DEP6}_acmeport_osint"
+mkdir -p "$DEP6DIR/reports"
+echo done > "$DEP6DIR/reports/osint_report.md"
+mkdir -p "$TD/kstate/acme-portfolio/claude/projects/-workspace"
 # only a SUBDIR cwd is recorded, and the tag is truncated in the dir name —
-# the two conditions that hid renzoprotocol's finished report on Sep 23
-printf '%s\n' '{"cwd":"/workspace/projects/pentest/260923_205806_renzo_osint/recon/repos"}' \
-  > "$TD/kstate/renzoprotocol/claude/projects/-workspace/sid.jsonl"
+# the two conditions that hid one engagement's finished report (the Sep-23 class)
+printf '%s\n' "{\"cwd\":\"/workspace/projects/pentest/${DEP6}_acmeport_osint/recon/repos\"}" \
+  > "$TD/kstate/acme-portfolio/claude/projects/-workspace/sid.jsonl"
 # assign AFTER source — the lib sets WS/KALI_STATE unconditionally, so an
 # env-prefix override is clobbered mid-source and the fixture never engages
 # (found while adding check 9; the check previously passed against live data)
-OUT=$(bash -c "source /root/pentest-stack/fleet-lib.sh; WS='$TD/ws'; KALI_STATE='$TD/kstate'; osint_artifact renzoprotocol")
+OUT=$(bash -c "source /root/pentest-stack/fleet-lib.sh; WS='$TD/ws'; KALI_STATE='$TD/kstate'; osint_artifact acme-portfolio")
 [ -n "$OUT" ] && ok "truncated-name + subdir-cwd artifact found ($OUT)" \
                || bad "artifact invisible under truncated name / subdir cwd"
 rm -rf "$TD"
@@ -222,14 +227,15 @@ TD=$(mktemp -d)
 # fixture: armed dir uses a BRAND name (no tag inside — the naming-miss class),
 # tag dirs in BOTH layouts, plus a transcript-cwd walk-up dir, plus distractors
 # that the OTHER gate must consume (technical_report.md) or ignore (chain file)
-mkdir -p "$TD/ws/proj_active/reports" "$TD/ws/260926_100000_tg_active/reports" \
-         "$TD/ws/projects/pentest/260926_120000_tg_active/reports" \
+DEP9A=260926_100000; DEP9B=260926_120000   # synthetic date stamps (composed below)
+mkdir -p "$TD/ws/proj_active/reports" "$TD/ws/${DEP9A}_tg_active/reports" \
+         "$TD/ws/projects/pentest/${DEP9B}_tg_active/reports" \
          "$TD/ws/projects/pentest/brandco_active/reports" \
          "$TD/kstate/tg/claude/projects/-workspace"
 echo x > "$TD/ws/proj_active/reports/monetization-chain.md"
-echo x > "$TD/ws/projects/pentest/260926_120000_tg_active/reports/monetization-chain.md"
+echo x > "$TD/ws/projects/pentest/${DEP9B}_tg_active/reports/monetization-chain.md"
 echo x > "$TD/ws/projects/pentest/brandco_active/reports/monetization-chain.md"
-echo x > "$TD/ws/260926_100000_tg_active/reports/technical_report.md"
+echo x > "$TD/ws/${DEP9A}_tg_active/reports/technical_report.md"
 printf '%s\n' '{"cwd":"/workspace/projects/pentest/brandco_active/recon"}' \
   > "$TD/kstate/tg/claude/projects/-workspace/sid.jsonl"
 cat > "$TD/probe.sh" <<'J'
@@ -398,6 +404,68 @@ case "$OUT" in
   *) bad "mobile_artifact found neither dir: $OUT" ;;
 esac
 rm -rf "$TD"
+
+# --------------------------------- 12. multi-box control layer (hub/remote/dispatch)
+note "12. multi-box layer: box resolution, dispatch allowlist, hub decode, split"
+SIM=$(mktemp -d); mkdir -p "$SIM/boxA/fleet/run1/state" "$SIM/boxB/fleet/run1/state"
+# 12a. hub pull snippet: active-run selection + dedupe + box stamp (render, not grep)
+cat > "$SIM/boxA/fleet/run1/state/sometag.json" <<'J'
+{"tag":"sometag","url":"https://a.test","status":"active","last_event":"x"}
+J
+cat > "$SIM/boxB/fleet/run1/state/sometag.json" <<'J'
+{"tag":"sometag","url":"https://a.test","status":"done","last_event":"y"}
+J
+# the hub pull snippet dedupes by tag+url+status across the active/newest run dirs
+(
+  # extract the pull snippet from fleet-hub.sh the way snippet_out renders it,
+  # substitute the fixture stack root, and run it — render, not grep-the-source
+  SELF=/root/communitytools/scripts
+  SNIP=$(sed -n '/^    pull) s=\$(cat <<'"'"'SNIP'"'"'/,/^SNIP$/p' "$SELF/fleet-hub.sh" | sed '1d;$d')
+  SNIP=${SNIP//__STACK__/$SIM/boxA}
+  # build a fake multi-run fleet dir: active symlink → run1, plus a stale run2
+  mkdir -p "$SIM/boxA/fleet/run2/state"
+  printf '%s\n' '{"tag":"sometag","url":"https://a.test","status":"queued","last_event":"old"}' \
+    > "$SIM/boxA/fleet/run2/state/sometag.json"
+  ln -sfn "$SIM/boxA/fleet/run1" "$SIM/boxA/fleet/active"
+  OUT=$(cd / && printf '%s' "$SNIP" | bash -s 2>/dev/null)
+  # active run wins over stale run2; row carries box field
+  N=$(printf '%s\n' "$OUT" | jq -s '[.[]|select(.tag=="sometag")]|length' 2>/dev/null)
+  S=$(printf '%s\n' "$OUT" | jq -r 'select(.tag=="sometag")|.status' 2>/dev/null | head -1)
+  [ "$N" = 1 ] && [ "$S" = active ] && exit 0 || exit 1
+) && ok "hub pull: active-run selection + dedupe + box stamp" || bad "hub pull wrong (n=${N:-?} s=${S:-?})"
+# 12b. dispatch allowlist: only has/pane/relay pass the verb gate
+DR=$(bash /root/communitytools/scripts/fleet-dispatch.sh status 2>&1); RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$DR" | grep -q 'not on the allowlist' \
+  && ok "dispatch refuses non-allowlisted verb (rc=$RC)" \
+  || bad "dispatch let a non-allowlisted verb through: $DR"
+DR=$(bash /root/communitytools/scripts/fleet-dispatch.sh has 'bad;tag' 2>&1); RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$DR" | grep -q 'invalid tag' \
+  && ok "dispatch validates tag charset" \
+  || bad "dispatch accepted a bad tag: $DR"
+DR=$(bash /root/communitytools/scripts/fleet-dispatch.sh relay sometag 'not@base64!' 2>&1); RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$DR" | grep -qi 'base64' \
+  && ok "dispatch relay validates base64 charset" \
+  || bad "dispatch relay accepted non-base64: $DR"
+# 12c. hub logs decode: the jq string-split contract (regression: fromjson double-parse)
+printf '%s\n' '{"kind":"log","box":"boxa","data":"l1\nl2"}' \
+  | jq -r 'select(.kind=="log") | .box as $b |
+           (.data | split("\n")[] | select(length>0) | $b + " " + .)' > "$SIM/logs.out" 2>/dev/null
+grep -q '^boxa l1$' "$SIM/logs.out" && grep -q '^boxa l2$' "$SIM/logs.out" \
+  && ok "hub log decode: box-prefixed lines" \
+  || bad "hub log decode wrong: $(cat "$SIM/logs.out")"
+# 12d. split: dedupe by host + instruction-column preservation (render the tool)
+printf 'a.test | probe first\nb.test\nc.test | depth on api\nb.test\n# comment\n\n' > "$SIM/t.txt"
+OUT=$(bash /root/communitytools/scripts/fleet-hub.sh split "$SIM/t.txt" 2 2>&1)
+N1=$(grep -c . "$SIM/t.txt.1"); N2=$(grep -c . "$SIM/t.txt.2")
+grep -q 'a.test | probe first' "$SIM/t.txt.1" "$SIM/t.txt.2" 2>/dev/null \
+  && ok "split preserves the instruction column" \
+  || bad "split lost instructions (n1=$N1 n2=$N2)"
+[ $(( N1 + N2 )) = 3 ] && ok "split deduped by host (3 hosts across 2 files)" \
+  || bad "split lost/duplicated hosts (n1=$N1 n2=$N2)"
+grep -q '^# comment' "$SIM/t.txt.1" "$SIM/t.txt.2" 2>/dev/null \
+  && bad "split copied comment lines into shards" \
+  || ok "split keeps comments out of shards"
+rm -rf "$SIM"
 
 echo "────────"
 [ "$FAIL" = 0 ]
