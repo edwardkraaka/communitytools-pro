@@ -121,6 +121,8 @@ tmux attach -t pentest            # detach: Ctrl-b d ; key an inner claude: Ctrl
 
 **Manual resume** (normally automatic): `docker restart eng-<tag>` — the entrypoint (`scripts/kali-resume-entrypoint.sh`) detects the persisted session and resumes it.
 
+**Multi-box:** the same stack shards across identical boxes with a thin ssh layer — each box runs the stock runner untouched, `scripts/fleet-hub.sh` merges every box's status into one wall-of-screens view, and `scripts/fleet-remote.sh` gives the operator the same attach/relay/pane verbs on any box's engagements (one hop further; see `docs/fleet-multi-box.md`).
+
 > The Compose file, systemd units, and per-engagement volumes are generated on the host (outside this repo) by the launcher. Secrets (`.env.*`, VPN keys) are sourced at runtime and never committed.
 
 ---
