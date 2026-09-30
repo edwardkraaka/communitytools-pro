@@ -82,3 +82,4 @@ With `d` recovered, sign anything: `k_new = randint(1, n-1)`; `r_new = x(k_new·
 - `pycryptodome.PublicKey.ECC` or `ecdsa` Python library for curve arithmetic.
 - `coincurve` for secp256k1 (Bitcoin/Ethereum).
 - Hand-rolled in ~30 lines once you have the curve constants.
+- [ecc-nonce-timing-lattice.md](ecc-nonce-timing-lattice.md) — the statistical-timing variant: nonce-length leakage over many signatures instead of exact reuse.

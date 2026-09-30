@@ -27,6 +27,7 @@ Read `cryptography-principles.md` first for the decision tree. This index maps f
 |---|---|---|
 | CBC + valid/invalid padding signal | `scenarios/padding-oracle/cbc-padding-oracle.md` | Vaudenay byte-by-byte |
 | RSA-PKCS#1 v1.5 decrypt oracle | `scenarios/padding-oracle/pkcs1-v1.5-bleichenbacher.md` | BB98 million-message |
+| RSA-PKCS#1 v1.5 decrypt oracle, uniform errors but measurable timing (Marvin/ROBOT) | `scenarios/padding-oracle/marvin-timing-oracle.md` | tlsfuzzer Marvin cases → timed BB98 |
 | ECB + chosen prefix oracle | `scenarios/padding-oracle/ecb-prefix-oracle.md` | Byte-at-a-time recovery |
 
 ## Weak RNG
@@ -36,6 +37,7 @@ Read `cryptography-principles.md` first for the decision tree. This index maps f
 | LCG outputs visible (Java Random, MS rand) | `scenarios/weak-rng/lcg-state-recovery.md` | gcd-based recovery, brute low bits |
 | MT19937 outputs (Python/PHP/Ruby random) | `scenarios/weak-rng/mt19937-state-recovery.md` | 624 outputs → state via untemper |
 | Dual_EC_DRBG with two P-256 points | `scenarios/weak-rng/dual-ec-backdoor.md` | Recover state via known `e` |
+| Wallet/vanity keys from 2011–2023 generator tooling (Profanity, BitcoinJS/JSBN "Randstorm", Libbitcoin `bx seed`, RoboForm) | `scenarios/weak-rng/wallet-generator-prng-vintage.md` | Identify generator vintage → model → timestamp-window sweep |
 | BIP-39 mnemonic generated on-device (hardware wallet, embedded keygen, RNG fallback path) | `scenarios/weak-rng/bip39-seed-entropy.md` | Enumerate thin seed space → derive addresses → sweep |
 
 ## Signature Forgery
@@ -46,6 +48,13 @@ Read `cryptography-principles.md` first for the decision tree. This index maps f
 | RSA-PKCS#1 v1.5 sigs, `e=3`, loose verifier | `scenarios/signature-forgery/rsa-pkcs1-v1.5-bleichenbacher.md` | Cube-root forge |
 | JWT verifier picks alg from header | `scenarios/signature-forgery/jwt-alg-confusion.md` | `alg=none`, RS256→HS256 |
 | Masked/"projective" ECDSA leaks a binary-GCD `half`/`sub`/`add` transcript of its inversion | `scenarios/signature-forgery/gcd-transcript-operand-recovery.md` | Reconstruct `den=mask·k` from the trace (reverse-replay, `x2=0` anchor). If operands UNREDUCED, `gcd(num,den)` cancels the mask. Else FACTOR `den` (product of two ~256-bit composites, not a hard semiprime) + test divisors vs `r` → `d`. CVE-2019-18222/2020/055 |
+| Signing-oracle timing measurable + many ECDSA/SM2 signatures collectable (Minerva/LadderLeak class) | `scenarios/signature-forgery/ecc-nonce-timing-lattice.md` | HNP/LLL over nonce bit-length bounds → `d` |
+
+## KDF / Credential Artifacts
+
+| Trigger / fingerprint | Scenario file | One-line job |
+|---|---|---|
+| Captured vault/wallet artifact with weak or keyless derivation (era-default PBKDF2 rounds, `EVP_BytesToKey(MD5, 1)`, time-seeded generators) | `scenarios/kdf/weak-kdf-vintage.md` | Audit KDF params → cost model → hashcat/btcrecover |
 
 ## Secret Sharing
 

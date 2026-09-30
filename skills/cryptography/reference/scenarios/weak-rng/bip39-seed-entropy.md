@@ -146,4 +146,4 @@ Sources: https://blog.coinkite.com/coldcard-mk3-seed-generation-warning/ · http
 - `pybloom_live` — bloom filter for funded-address membership.
 - `nm`, `objdump`, link maps (`-Wl,-Map=`) — verify which RNG symbol the binary binds.
 - `unicorn` / QEMU — emulate firmware PRNG code paths without hardware.
-- Siblings: `lcg-state-recovery.md` (LCG output prediction), `mt19937-state-recovery.md` (MT19937 output prediction) — this scenario covers the adjacent failure class: thin initial **state entropy at keygen** rather than observable output prediction.
+- Siblings: `lcg-state-recovery.md` (LCG output prediction), `mt19937-state-recovery.md` (MT19937 output prediction) — this scenario covers the adjacent failure class: thin initial **state entropy at keygen** rather than observable output prediction. [wallet-generator-prng-vintage.md](wallet-generator-prng-vintage.md) covers the software-generator side of the same class.
