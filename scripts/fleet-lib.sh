@@ -344,8 +344,17 @@ pane_capture() {  # visible screen ONLY. 'esc to interrupt'/API banners live on 
   # live status line; scanning scrollback (-S -500) matched STALE hints from
   # finished turns and read parked sessions as busy — stage-2 injection then
   # stalled for up to an hour behind a signature long since scrolled off.
-  docker exec "$1" tmux capture-pane -pt eng 2>/dev/null || true
+  dockx "$1" tmux capture-pane -pt eng 2>/dev/null || true
 }
+
+# dockx <container> <cmd…> — docker exec with a hard timeout wrapper. A docker
+# exec against a wedged container endpoint can block INDEFINITELY (live case
+# 2026-09-30: a send-keys into eng-<tag> hung 5h+, freezing the whole
+# single-threaded runner loop — every slot's park/nudge/timeout ladder starved,
+# finished targets sat unretired, queue starved). Every poll-path docker call
+# must go through this. 30s: generous for capture-pane (instant) and send-keys
+# (instant); anything longer is a stuck endpoint, treat as a failed probe.
+dockx() { timeout 30 docker exec "$@"; }
 
 pane_idle() {  # no in-flight turn, no error park
   local pane; pane=$(pane_capture "$1")
