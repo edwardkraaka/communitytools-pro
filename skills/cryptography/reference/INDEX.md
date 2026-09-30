@@ -36,6 +36,7 @@ Read `cryptography-principles.md` first for the decision tree. This index maps f
 | LCG outputs visible (Java Random, MS rand) | `scenarios/weak-rng/lcg-state-recovery.md` | gcd-based recovery, brute low bits |
 | MT19937 outputs (Python/PHP/Ruby random) | `scenarios/weak-rng/mt19937-state-recovery.md` | 624 outputs → state via untemper |
 | Dual_EC_DRBG with two P-256 points | `scenarios/weak-rng/dual-ec-backdoor.md` | Recover state via known `e` |
+| BIP-39 mnemonic generated on-device (hardware wallet, embedded keygen, RNG fallback path) | `scenarios/weak-rng/bip39-seed-entropy.md` | Enumerate thin seed space → derive addresses → sweep |
 
 ## Signature Forgery
 
