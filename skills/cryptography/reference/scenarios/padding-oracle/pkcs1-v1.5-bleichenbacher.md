@@ -62,3 +62,4 @@ The final `m` should encrypt back to `c0`: `pow(m, e, n) == c0`.
 - `tls-attacker` (Java) — for TLS-specific Bleichenbacher / ROBOT.
 - `BB98.py` Python implementations on GitHub (search "Bleichenbacher Python").
 - `pycryptodome` for RSA arithmetic; oracle wiring is bespoke per target.
+- [marvin-timing-oracle.md](marvin-timing-oracle.md) — the same BB98 flow when the only oracle signal is timing rather than error text.

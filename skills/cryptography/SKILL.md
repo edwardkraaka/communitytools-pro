@@ -1,6 +1,6 @@
 ---
 name: cryptography
-description: Cryptanalysis techniques — lattice attacks, padding oracles, weak-RNG exploitation, signature forgery, secret-sharing recovery.
+description: Cryptanalysis techniques — lattice attacks, padding oracles, weak-RNG/seed-entropy exploitation, timing side channels, weak-KDF artifact cracking, signature forgery, secret-sharing recovery.
 ---
 
 # Cryptography
@@ -19,5 +19,7 @@ Practical cryptanalysis for CTF and pentest engagements: identifying when a cryp
 
 ## References
 
+- [reference/INDEX.md](reference/INDEX.md) — scenario router (fingerprint → file).
+- [reference/cryptography-principles.md](reference/cryptography-principles.md) — decision tree and sequencing principles.
 - [reference/lattice-attacks.md](reference/lattice-attacks.md) — AGCD lattice, discriminant-square factoring, smooth-order DLP, Piret-Quisquater DFA.
 - [reference/linear-secret-recovery.md](reference/linear-secret-recovery.md) — GF(2) affine collapse of custom hashes/ciphers via column-by-column linear recovery.

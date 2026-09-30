@@ -62,7 +62,7 @@ Skills consumed by the cloud-agent task specifications under [`projects/rfp-3.2/
 |-------|---------|---------|
 | [`blockchain-security`](blockchain-security/SKILL.md) | Solidity, EVM, smart contract exploitation | Smart contract target |
 | [`ai-threat-testing`](ai-threat-testing/SKILL.md) | Prompt injection, model extraction, RAG poisoning, OWASP LLM Top 10 | LLM-backed application |
-| [`cryptography`](cryptography/SKILL.md) | Lattice / AGCD / linear-collapse cryptanalysis, padding oracles, secret-sharing recovery | Custom crypto, structured RSA, oracle exposure |
+| [`cryptography`](cryptography/SKILL.md) | Lattice / AGCD / linear-collapse cryptanalysis, padding oracles incl. Marvin timing, weak-RNG and wallet seed-entropy vintage, ECC nonce-leak lattice recovery, weak-KDF artifact cracking, secret-sharing recovery | Custom crypto, structured RSA, oracle exposure, wallet/keygen or signing-oracle targets, captured vault/wallet artifacts |
 | [`reverse-engineering`](reverse-engineering/SKILL.md) | Static analysis of ELF/PE, custom-VM bytecode, callfuscation, MBA deobfuscation | Compiled binary / custom-ISA program-data file |
 | [`mobile-security`](mobile-security/SKILL.md) | Android + iOS VAPT (MASVS/MASTG) — static RE (Flutter AOT, IL2CPP, RN/Hermes, Mach-O/Swift), SAST, dynamic analysis (Frida/objection, TLS-pinning + root/jailbreak bypass), privacy | Mobile APK / AAB / IPA target |
 | [`mobile-app-farm`](mobile-app-farm/SKILL.md) | Batch acquire → decompile → triage of many APKs/IPAs (apkeep/ipatool, no emulator/ADB) → hands decompiled source to `mobile-security` | A list of package/bundle ids to pentest as source, at scale |
