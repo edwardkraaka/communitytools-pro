@@ -29,7 +29,7 @@ set -euo pipefail
 STACK=${FLEET_STACK:-/root/pentest-stack}
 FLEET_BOXES=${FLEET_BOXES:-local}
 SSH_MODE=${FLEET_SSH_MODE:-inline}
-SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SELF_DIR=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 
 usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 err()   { echo "fleet-remote: $*" >&2; }
