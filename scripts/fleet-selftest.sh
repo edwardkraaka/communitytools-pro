@@ -354,6 +354,35 @@ if [ -f "$TI_SKILL" ] && [ -f "$TI_A" ] && [ -f "$TI_B" ]; then
 else
   bad "threat-intel missing a layer copy (canonical / .claude mirror / skills mirror)"
 fi
+# Same three-layer rule for attack-path-stitcher — the phase-3 stitch skill
+# the runner mandate names by absolute in-container path
+# (/workspace/.claude/skills/attack-path-stitcher/SKILL.md). Its layer-A entry
+# is NOT committed on pro/main (projects/pentest/.claude/skills/* is
+# gitignored), so a fresh clone must run scripts/sync-pentest-mirror.sh to
+# materialize it before any fleet box launches an engagement.
+APS_SKILL=/root/communitytools/skills/attack-path-stitcher/SKILL.md
+APS_A=/root/communitytools/projects/pentest/.claude/skills/attack-path-stitcher/SKILL.md
+APS_B=/root/communitytools/projects/pentest/skills/attack-path-stitcher/SKILL.md
+APS_T=/root/communitytools/skills/attack-path-stitcher/tools/chain-merger.py
+APS_TA=/root/communitytools/projects/pentest/.claude/skills/attack-path-stitcher/tools/chain-merger.py
+APS_TB=/root/communitytools/projects/pentest/skills/attack-path-stitcher/tools/chain-merger.py
+if [ -f "$APS_SKILL" ] && [ -f "$APS_A" ] && [ -f "$APS_B" ]; then
+  ok "attack-path-stitcher SKILL.md present at all three layers"
+  APS_CK=$(md5sum "$APS_SKILL" | cut -d' ' -f1)
+  [ "$(md5sum "$APS_A" | cut -d' ' -f1)" = "$APS_CK" ] && [ "$(md5sum "$APS_B" | cut -d' ' -f1)" = "$APS_CK" ] \
+    && ok "attack-path-stitcher three layer copies byte-identical" \
+    || bad "attack-path-stitcher layer drift — run scripts/sync-pentest-mirror.sh"
+else
+  bad "attack-path-stitcher missing a layer copy (canonical / .claude mirror / skills mirror)"
+fi
+if [ -f "$APS_T" ] && [ -f "$APS_TA" ] && [ -f "$APS_TB" ]; then
+  APS_TCK=$(md5sum "$APS_T" | cut -d' ' -f1)
+  [ "$(md5sum "$APS_TA" | cut -d' ' -f1)" = "$APS_TCK" ] && [ "$(md5sum "$APS_TB" | cut -d' ' -f1)" = "$APS_TCK" ] \
+    && ok "chain-merger.py present and byte-identical at all three layers" \
+    || bad "chain-merger.py layer drift — run scripts/sync-pentest-mirror.sh"
+else
+  bad "chain-merger.py missing from a skill layer (canonical skills/attack-path-stitcher/tools/ + both mirrors)"
+fi
 
 # --------------------------------------- 11. mobile-surface lane (apk handoff)
 note "11. mobile-surface lane: kickoff mandate, verdict gate, conditional paragraph"
