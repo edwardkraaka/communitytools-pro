@@ -317,10 +317,10 @@ while :; do
         # artifact landed? then wait for idle and inject stage 2
         art=$(osint_artifact "$tag")
         if [ -n "$art" ]; then
-          if docker exec "$c" tmux has-session -t eng 2>/dev/null; then
+          if dockx "$c" tmux has-session -t eng 2>/dev/null; then
             # clear any agents overlay first — send-keys into an overlay is
             # swallowed (the nudge rung's lesson; pane_idle can't see overlays)
-            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+            pane_capture "$c" | grep -q 'Enter to view' && { dockx "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
             if pane_idle "$c"; then
               b1=$(transcript_bytes "$tag")
               sleep "$IDLE_SAMPLE"
@@ -394,11 +394,11 @@ while :; do
           # — never injected mid-turn). Cap 2 direct injections; recovery past
           # that rides the parked-nudge ladder (phase-aware text below) + the
           # timeout ceiling.
-          if docker exec "$c" tmux has-session -t eng 2>/dev/null; then
+          if dockx "$c" tmux has-session -t eng 2>/dev/null; then
             # clear any agents overlay first — send-keys into an overlay is
             # swallowed (ankr burned both capped injections this way: overlay
             # from a finished subagent parked 2h; x clears, then inject)
-            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+            pane_capture "$c" | grep -q 'Enter to view' && { dockx "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
             if pane_idle "$c"; then
               b1=$(transcript_bytes "$tag")
               sleep "$IDLE_SAMPLE"
@@ -458,14 +458,14 @@ while :; do
             if [ "${park_n:-0}" -lt 2 ]; then
               # clear any agents overlay first — nudge text into an overlay is
               # swallowed ("Enter to view · x to clear" screens)
-              pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+              pane_capture "$c" | grep -q 'Enter to view' && { dockx "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
               nudge_txt="Continue the active engagement now. If finding work is complete, stop exploration and write the final technical report in reports/ immediately. Do not start new experiments."
               if [ -n "$(state_get "$RUNID" "$tag" '.stage3.dir // empty')" ]; then
                 nudge_txt="Continue the stitch task now. Stop exploring — stitch the confirmed findings into the monetization chain and write it to reports/monetization-chain.md immediately."
               fi
-              if docker exec "$c" tmux send-keys -t eng -l -- "$nudge_txt" 2>/dev/null; then
+              if dockx "$c" tmux send-keys -t eng -l -- "$nudge_txt" 2>/dev/null; then
                 sleep 1
-                docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+                dockx "$c" tmux send-keys -t eng Enter 2>/dev/null || true
                 state_set "$RUNID" "$tag" ".park.n = ${park_n:-0} + 1 | .park.at = $(date +%s)"
                 log "NUDGE   $tag — idle with static transcript >45m, no report (nudge $((park_n+1))/2)"
               fi
@@ -495,7 +495,7 @@ while :; do
             else
               re_txt="Continue the active engagement — finish and write the technical report in reports/ now."
             fi
-            docker exec "$c" tmux send-keys -t eng -l -- "$re_txt" 2>/dev/null && sleep 1 && docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+            dockx "$c" tmux send-keys -t eng -l -- "$re_txt" 2>/dev/null && sleep 1 && dockx "$c" tmux send-keys -t eng Enter 2>/dev/null || true
             state_set "$RUNID" "$tag" ".ts.injected=\"$(date -Is)\""
           fi
         fi
@@ -517,9 +517,9 @@ while :; do
           man_n=$(state_get "$RUNID" "$tag" '.mcompact.n // 0')
           man_at=$(state_get "$RUNID" "$tag" '.mcompact.at // 0')
           if [ "$man_n" -lt 3 ] && [ $(( $(date +%s) - ${man_at:-0} )) -gt 3600 ]; then
-            pane_capture "$c" | grep -q 'Enter to view' && { docker exec "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
-            if docker exec "$c" tmux send-keys -t eng -l -- "/compact" 2>/dev/null; then
-              sleep 1; docker exec "$c" tmux send-keys -t eng Enter 2>/dev/null || true
+            pane_capture "$c" | grep -q 'Enter to view' && { dockx "$c" tmux send-keys -t eng x 2>/dev/null || true; sleep 2; }
+            if dockx "$c" tmux send-keys -t eng -l -- "/compact" 2>/dev/null; then
+              sleep 1; dockx "$c" tmux send-keys -t eng Enter 2>/dev/null || true
               state_set "$RUNID" "$tag" ".mcompact = {n:$((man_n+1)), at:$(date +%s), b:$cmpn}"
               log "MCOMPACT $tag — manual /compact injected ($((man_n+1))/3 this window)"
             fi
