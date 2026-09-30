@@ -40,6 +40,18 @@ needs() { command -v "$1" >/dev/null 2>&1; }
 step_repo() {
   if [ -d "$REPO/.git" ]; then
     say "repo present at $REPO (branch: $(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null))"
+    # Materialize the engagement-critical skill layers a fresh clone lacks:
+    # layer-A symlink members dangle host-side and absent members (e.g.
+    # attack-path-stitcher, the phase-3 stitch skill the runner mandates)
+    # never materialize on their own — runner mandates name
+    # /workspace/.claude/skills/<name>/ paths that must resolve in-container.
+    if [ -x "$REPO/scripts/sync-pentest-mirror.sh" ] && [ -d "$REPO/skills/attack-path-stitcher" ]; then
+      if run bash "$REPO/scripts/sync-pentest-mirror.sh"; then
+        say "mirror layers synced (stitcher + intel skills materialized)"
+      else
+        fail "sync-pentest-mirror.sh failed — stitcher skill may be missing in-container"
+      fi
+    fi
   elif needs git; then
     say "cloning not possible here — clone manually, then re-run"
     fail "no repo at $REPO"
