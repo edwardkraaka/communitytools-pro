@@ -24,6 +24,7 @@ Read source first (when accessible). The structure of the cryptosystem points di
 | Java/PHP/glibc `rand()` outputs visible | `scenarios/weak-rng/lcg-state-recovery.md` | LCG state recovery |
 | Python/PHP MT19937 outputs visible | `scenarios/weak-rng/mt19937-state-recovery.md` | randcrack untemper |
 | Two NIST P-256 points + 30-byte outputs | `scenarios/weak-rng/dual-ec-backdoor.md` | Backdoor predict |
+| BIP-39 seed generated on-device (hardware wallet / embedded keygen) | `scenarios/weak-rng/bip39-seed-entropy.md` | Seed-space enumeration sweep |
 | Two ECDSA sigs share `r` | `scenarios/signature-forgery/ecdsa-nonce-reuse.md` | k recovery, then d |
 | RSA sig verifier with `e=3` and loose padding | `scenarios/signature-forgery/rsa-pkcs1-v1.5-bleichenbacher.md` | Cube-root forgery |
 | JWT validator dispatches on `alg` header | `scenarios/signature-forgery/jwt-alg-confusion.md` | none / HS256 swap |
