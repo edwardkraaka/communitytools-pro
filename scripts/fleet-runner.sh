@@ -217,12 +217,12 @@ pick_gluetun() {  # probe GLUETUN_OPT > gluetun > gluetun-za; prints name or fai
 }
 
 owned_running() {  # runner-owned containers currently running
-  local f tag st c n=0
+  local f tag st n=0
   for f in "$RUN_DIR"/state/*.json; do
     [ -f "$f" ] || continue
     tag=$(jq -r .tag "$f"); st=$(jq -r .status "$f")
     case "$st" in launched-osint|osint-done|active|done)
-      [ "$(docker inspect -f '{{.State.Running}}' "eng-$tag" 2>/dev/null || echo false)" = true ] && n=$((n+1)) ;;
+      eng_running "$tag" && n=$((n+1)) ;;
     esac
   done
   echo "$n"
@@ -284,18 +284,28 @@ while :; do
   for f in "$RUN_DIR"/state/*.json; do
     [ -f "$f" ] || continue
     tag=$(jq -r .tag "$f"); st=$(jq -r .status "$f")
-    c="eng-$tag"
+    # resolve through eng_container each pass: compose may rename the container
+    # (<12hex>_eng-<tag>) between polls, and every $c use below (pane/idle/inject)
+    # must keep addressing the live one.
+    c=$(eng_container "$tag") || c=""
 
     case "$st" in
       queued) ALL_TERMINAL=0 ;;
       failed|done|retired) continue ;;
+      *)
+        # container genuinely absent AND this state drives $c below → skip the
+        # pass (empty $c would feed dockx/pane helpers garbage); the ADOPT
+        # branches re-register it on this same pass.
+        [ -n "$c" ] || case "$st" in launched-osint|active) ;; *) continue ;; esac ;;
 
       launched-osint)
         ALL_TERMINAL=0
-        if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null || echo false)" != true ]; then
+        if ! eng_running "$tag"; then
           # container gone: entries stay in registry (auto-restart owns recovery);
           # if it was REMOVED (not just exited), re-register via pinned env.
-          if ! docker ps -a --format '{{.Names}}' | grep -q "^$c$"; then
+          # eng_container also catches compose's <12hex>_eng-<tag> rename, so a
+          # live-but-renamed container is NOT "missing" and never re-registered.
+          if [ -z "$(eng_container "$tag")" ]; then
             log "ADOPT   $tag container missing — re-registering via pinned env"
             FLEET_GLUETUN="$ACTIVE_GLUETUN" bash /root/communitytools/scripts/kali-eng.sh "$tag" "$(state_get "$RUNID" "$tag" '.url') — continue the OSINT engagement" >/dev/null 2>&1 || attempt_tick "$tag" "re-register failed"
           fi
@@ -351,8 +361,8 @@ while :; do
 
       active)
         ALL_TERMINAL=0
-        if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null || echo false)" != true ]; then
-          if ! docker ps -a --format '{{.Names}}' | grep -q "^$c$"; then
+        if ! eng_running "$tag"; then
+          if [ -z "$(eng_container "$tag")" ]; then
             log "ADOPT   $tag container missing mid-active — re-registering (resumes pinned session)"
             FLEET_GLUETUN="$ACTIVE_GLUETUN" bash /root/communitytools/scripts/kali-eng.sh "$tag" "Continue the active pentest engagement for $(state_get "$RUNID" "$tag" '.url') from its files — keep driving to the impact rungs" >/dev/null 2>&1 || attempt_tick "$tag" "re-register failed mid-active"
           fi

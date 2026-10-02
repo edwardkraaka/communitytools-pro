@@ -162,6 +162,34 @@ ts_age_s() {  # seconds since an ISO timestamp (empty → huge)
   echo $(( $(date +%s) - $(date -d "$1" +%s) ))
 }
 
+eng_container() {  # eng_container <tag> — canonical container name for a tag.
+  # docker compose renames a name-colliding container to <12hex>_eng-<tag> when
+  # `up` re-renders the shared compose file mid-run (the Oct-2 mybatch loop: the
+  # strict "^eng-$tag$" lookups missed it, the runner "adopted" a live container,
+  # and every re-registration re-orphaned the previous generation). Resolve by
+  # compose labels first — immune to renames — preferring a RUNNING match when
+  # orphan generations share the label, then the exact name, then a name-suffix
+  # scan. Prints the name (rc 0) or nothing (rc 1) — head never masks the miss.
+  local tag=$1 n
+  n=$(docker ps --filter "label=com.docker.compose.service=eng-${tag}" \
+        --format '{{.Names}}' | head -1)
+  [ -n "$n" ] && { echo "$n"; return 0; }
+  docker inspect "eng-${tag}" >/dev/null 2>&1 && { echo "eng-${tag}"; return 0; }
+  n=$(docker ps -a --filter "label=com.docker.compose.service=eng-${tag}" \
+        --format '{{.Names}}' | head -1)
+  [ -n "$n" ] && { echo "$n"; return 0; }
+  n=$(docker ps -a --format '{{.Names}}' \
+        | grep -E "(^|[0-9a-f]{12}_)eng-${tag}\$" | head -1)
+  [ -n "$n" ] || return 1
+  echo "$n"
+}
+
+eng_running() {  # eng_running <tag> — true iff the tag's container exists AND runs
+  local n; n=$(eng_container "$1") || return 1
+  [ -n "$n" ] || return 1
+  [ "$(docker inspect -f '{{.State.Running}}' "$n" 2>/dev/null || echo false)" = true ]
+}
+
 # ----------------------------------------------------------------- preflight --
 fleet_preflight() {  # fleet_preflight <gluetun> <envfile> <label>  (flock-serialized)
   { flock 8
