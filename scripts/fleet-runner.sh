@@ -289,14 +289,17 @@ while :; do
     # must keep addressing the live one.
     c=$(eng_container "$tag") || c=""
 
+    # container genuinely absent AND this state drives $c below → skip the pass
+    # (empty $c would feed dockx/pane helpers garbage); the ADOPT branches
+    # re-register it on this same pass. Do NOT fold this into a `*)` arm of the
+    # case — a matched `*)` would shadow the launched-osint/active branches.
+    if [ -z "$c" ]; then
+      case "$st" in launched-osint|active) ;; *) continue ;; esac
+    fi
+
     case "$st" in
       queued) ALL_TERMINAL=0 ;;
       failed|done|retired) continue ;;
-      *)
-        # container genuinely absent AND this state drives $c below → skip the
-        # pass (empty $c would feed dockx/pane helpers garbage); the ADOPT
-        # branches re-register it on this same pass.
-        [ -n "$c" ] || case "$st" in launched-osint|active) ;; *) continue ;; esac ;;
 
       launched-osint)
         ALL_TERMINAL=0
