@@ -31,7 +31,7 @@ If not running, the orchestrator asks the user to start it (this skill does not 
 
 ## 3. Login
 
-Headed browser (NEVER headless). `https://app.hackthebox.com/login`. Anti-detection flags + realistic viewport + persistent context for `cf_clearance`. If blocked, see [`skills/reconnaissance/reference/anti-bot-bypass.md`](../../reconnaissance/reference/anti-bot-bypass.md). Fallback: API with Bearer token.
+Headed browser (never headless). `https://app.hackthebox.com/login`. Anti-detection flags + realistic viewport + persistent context for `cf_clearance`. If blocked, see [`skills/reconnaissance/reference/anti-bot-bypass.md`](../../reconnaissance/reference/anti-bot-bypass.md). Fallback: API with Bearer token.
 
 ## 4. Connectivity check (per target)
 

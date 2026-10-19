@@ -43,10 +43,25 @@ def test_json_always_exits_zero():
 
 
 def test_human_mode_still_fails_on_violations():
-    """CI runs the human mode. Adding --json must not change its behaviour."""
+    """CI runs the human mode. Adding --json must not change its behaviour.
+
+    The tree is expected clean (skill-lint.yml gates on exit 0), so the clean
+    contract is asserted directly; the fails-on-violation contract is proven
+    with a synthetic NEGATIVE fixture so it stays guarded on a clean tree."""
     r = run()
-    assert r.returncode == 1, "the tree has known violations; human mode must exit 1"
-    assert "skill_linter:" in r.stdout
+    assert r.returncode == 0, f"tree should be lint-clean; human mode said: {r.stdout[:400]}"
+    assert "skill_linter: clean" in r.stdout
+
+    fixture = os.path.join(REPO, "skills", "_linter_violation_fixture_tmp.md")
+    try:
+        with open(fixture, "w", encoding="utf-8") as f:
+            f.write("# linter test fixture\n\nDO NOT keep this file.\n")
+        r = run()
+        assert r.returncode == 1, "human mode must exit 1 when violations exist"
+        assert "skill_linter:" in r.stdout
+    finally:
+        if os.path.exists(fixture):
+            os.unlink(fixture)
 
 
 def test_output_is_byte_identical_across_runs():

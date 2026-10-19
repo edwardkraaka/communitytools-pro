@@ -187,7 +187,7 @@ The pivot that often unlocks domain admin: **one app user's password = `Administ
 
 - Lockout policies vary per OU / domain / fine-grained password policy. Pull the actual policy before spraying.
 - Spraying admin accounts may use stricter lockouts — exclude them from spray, target separately.
-- Some targets (e.g. service accounts with non-expiring passwords) may have NEVER been rotated — try old defaults too.
+- Some targets (e.g. service accounts with non-expiring passwords) may have never been rotated — try old defaults too.
 - Heavy noise — IDS / SIEM will alert on spray patterns. Coordinate with engagement contact.
 - Some endpoints (web SSO) are not the auth surface; authenticate via LDAP/SMB instead.
 

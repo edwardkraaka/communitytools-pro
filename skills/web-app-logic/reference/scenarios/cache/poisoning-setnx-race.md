@@ -129,4 +129,4 @@ If `X-Cache: hit` and the marker is present, you won. The next time the victim h
 - [poisoning-body-args.md](poisoning-body-args.md) — the origin-side primitive that lets you inject malicious content into the origin's response. Combines naturally with this race for end-to-end stored XSS into authenticated sessions.
 - [advanced-techniques.md](../race-conditions/advanced-techniques.md) — single-packet attack and last-byte sync further compress the race burst.
 - [single-endpoint-collision.md](../race-conditions/single-endpoint-collision.md) — different race shape (TOCTOU within the handler), not cache-fill.
-- Confirmed end-to-end against HTB SocratesPanel (Go CDN with `SetNX` + Tornado origin + admin Selenium bot). Inflating `/search` origin time from ~30 ms to ~800 ms (via 10 k DB rows) turned a 0% win rate into ~100% per attempt window.
+- Confirmed end-to-end against the SocratesPanel lab challenge (Go CDN with `SetNX` + Tornado origin + admin Selenium bot). Inflating `/search` origin time from ~30 ms to ~800 ms (via 10 k DB rows) turned a 0% win rate into ~100% per attempt window.

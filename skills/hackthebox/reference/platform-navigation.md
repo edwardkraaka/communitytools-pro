@@ -87,7 +87,7 @@ success = await page.locator('.success-message').is_visible()
 
 ## Tab Management
 
-**Tab 0 = Control Tab** (challenge/machine page). NEVER close it.
+**Tab 0 = Control Tab** (challenge/machine page). Never close it.
 
 ```
 Tab layout:

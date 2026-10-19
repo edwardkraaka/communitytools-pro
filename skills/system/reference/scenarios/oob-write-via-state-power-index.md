@@ -136,7 +136,7 @@ If memset shift doesn't land in a populatable area:
 
 ## References
 
-- Real-world example: HackTheBox "Magic Scrolls" challenge (Pwn, Hard) — implements this exact pattern. Primitives identified but info-leak path remained elusive in 41-experiment investigation; documented as cautionary tale.
+- Real-world example: the "Magic Scrolls" lab challenge (Pwn, Hard) — implements this exact pattern. Primitives identified but info-leak path remained elusive in 41-experiment investigation; documented as cautionary tale.
 - glibc 2.34+ `tcache_key` is random (NOT heap-based) — older guides claiming "tcache_key leaks heap" are obsolete.
 - safe-link formula: `stored_fd = next_chunk_addr ^ (current_chunk_addr >> 12)`.
 

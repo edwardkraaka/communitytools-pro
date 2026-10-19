@@ -78,4 +78,4 @@ Once you have arbitrary R/W on libc:
 
 ## Worked example
 
-HTB Pwn challenge "Threadweaver" (2026-05): exact constants: DTV at `heap_base + 0x200..0x300`, modid=2, `dtv[2].pointer.val` at `heap_base + 0x230`, `dtv[1].pointer.val` at `heap_base + 0x220` (do not clobber). Confirmed working on glibc 2.39 (Ubuntu 24.04). Full exploit: [`projects/ctf/260515_threadweaver/artifacts/pwn_threadweaver/exploit4.py`](../../../../projects/ctf/260515_threadweaver/artifacts/pwn_threadweaver/exploit4.py).
+Lab-platform Pwn challenge "Threadweaver" (2026-05): exact constants: DTV at `heap_base + 0x200..0x300`, modid=2, `dtv[2].pointer.val` at `heap_base + 0x230`, `dtv[1].pointer.val` at `heap_base + 0x220` (do not clobber). Confirmed working on glibc 2.39 (Ubuntu 24.04). Full exploit: `projects/ctf/260515_threadweaver/artifacts/pwn_threadweaver/exploit4.py`.

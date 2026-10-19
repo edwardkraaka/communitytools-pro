@@ -87,7 +87,7 @@ Output: cleartext URL + username + password for every saved login. These passwor
 
 ### 6. Ansible Vault
 
-The real credentials are NOT in `inventory` files (those are template placeholders — DO NOT spray them as live AD creds). Real secrets live as `!vault` blocks inside `defaults/main.yml`, `group_vars/*.yml`, `host_vars/*.yml`, or any role's `vars/main.yml`.
+The real credentials are NOT in `inventory` files (those are template placeholders — do not spray them as live AD creds). Real secrets live as `!vault` blocks inside `defaults/main.yml`, `group_vars/*.yml`, `host_vars/*.yml`, or any role's `vars/main.yml`.
 
 Format on disk:
 ```yaml

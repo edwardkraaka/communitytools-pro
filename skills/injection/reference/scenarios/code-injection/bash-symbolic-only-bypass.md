@@ -128,4 +128,4 @@ ____________=${___________:$((!!$$))}           # path[5:]
 
 ## Origin
 
-HTB Misc Medium *Utterly Broken Shell* (challenge 1215). The two prior challenges in the series allowed digits + `/` + `&` + `>` and were solved with `_1=$( /_ 2>&1 )` to capture stderr — that path is impossible here, forcing the `${!0_alias}` script-path-leak technique.
+Lab-platform Misc Medium *Utterly Broken Shell* (challenge 1215). The two prior challenges in the series allowed digits + `/` + `&` + `>` and were solved with `_1=$( /_ 2>&1 )` to capture stderr — that path is impossible here, forcing the `${!0_alias}` script-path-leak technique.

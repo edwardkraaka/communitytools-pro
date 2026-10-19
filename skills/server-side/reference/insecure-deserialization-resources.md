@@ -178,7 +178,7 @@ If 1–4 all stay silent, *then* question the serializer/gadget — but first co
 
 ## Watch for a gate before the sink
 
-The sink may be guarded (`if (Session.Keys.Count != 0)`, a feature flag, an auth check). Test authed-vs-unauthed **differentially**: fire the identical gadget with and without a populated session; a callback only in the authed case confirms both the gate condition and the RCE. Don't conclude "deser dead" when the real state is "gate unmet" — find what populates the gate (login flow, a Session-writing endpoint). (Real case: HTB Context — the JavaScriptSerializer/SimpleTypeResolver `Profile` cookie sink is gated on a populated session; firing the ObjectDataProvider gadget *after* an authenticated login produced an immediate `%COMPUTERNAME%`-expanded callback, after 6 sessions of wrongly concluding it was architecturally blocked.)
+The sink may be guarded (`if (Session.Keys.Count != 0)`, a feature flag, an auth check). Test authed-vs-unauthed **differentially**: fire the identical gadget with and without a populated session; a callback only in the authed case confirms both the gate condition and the RCE. Don't conclude "deser dead" when the real state is "gate unmet" — find what populates the gate (login flow, a Session-writing endpoint). (Real case: the Context lab challenge — the JavaScriptSerializer/SimpleTypeResolver `Profile` cookie sink is gated on a populated session; firing the ObjectDataProvider gadget *after* an authenticated login produced an immediate `%COMPUTERNAME%`-expanded callback, after 6 sessions of wrongly concluding it was architecturally blocked.)
 
 ## Cheat-sheet companions in this repo
 

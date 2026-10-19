@@ -75,7 +75,7 @@ Once libc_base is known:
 - **entries[X] storage is unprotected** (no PROTECT_PTR on `tcache->entries[tc_idx] = e`). So if you can write to entries[X] directly, you control the next alloc's return. But writing to entries[X] requires an existing arbitrary-write primitive (chicken-egg).
 - **House of Botcake** remains the recommended path for arbitrary write in glibc 2.32+ with the leaks above.
 
-## Reference: HTB Magic Scrolls (Pwn, Hard, 40pts, challenge_id=634)
+## Reference: lab challenge Magic Scrolls (Pwn, Hard, 40pts, challenge_id=634)
 
 - Binary: `magic`, glibc 2.37-7, full RELRO + PIE + canary + NX.
 - Vulnerability: power-state-controlled OOB write of `spells[0]`/`spells[1]` plus length-confusion in `set_favorite_spell` ELSE branch.

@@ -38,4 +38,4 @@ Run an availability check before declaring recon complete:
 - TLS posture: sslscan
 - Templated exposure: nuclei
 
-If a tool-class is unavailable, record it as an explicit limitation — NEVER declare recon COMPLETE having skipped a whole class. Hand-rolled urllib is not a substitute (see skills/coordination/reference/principles.md 'Real tools before hand-rolled HTTP').
+If a tool-class is unavailable, record it as an explicit limitation — never declare recon COMPLETE having skipped a whole class. Hand-rolled urllib is not a substitute (see skills/coordination/reference/principles.md 'Real tools before hand-rolled HTTP').

@@ -17,7 +17,7 @@ Single navigation surface. Coordinator reads this once at engagement start to pi
 
 ## Cloud-Agent Pipeline (RFP §3.2 / §3.3)
 
-Skills consumed by the cloud-agent task specifications under [`projects/rfp-3.2/`](../projects/rfp-3.2/CLAUDE.md) and [`projects/rfp-3.3/`](../projects/rfp-3.3/CLAUDE.md). They run on schedules or webhook events, not interactively.
+Skills consumed by the cloud-agent task specifications under `projects/rfp-3.2/` and `projects/rfp-3.3/`. They run on schedules or webhook events, not interactively.
 
 | Skill | Purpose | Trigger |
 |-------|---------|---------|
