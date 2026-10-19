@@ -54,7 +54,13 @@
       "not_assessed": {
         "A09:2021": "Security Logging and Monitoring Failures — not observable from the client side: whether events are logged, retained and alerted on is a property of infrastructure the test does not see. Assess it in a configuration/posture review, not a black-box or grey-box application test, and state the exclusion in the report rather than implying coverage."
       }
-    }
+    },
+    "verticals": [
+      "crypto",
+      "bank",
+      "fintech",
+      "other"
+    ]
   },
   "classes": [
     {

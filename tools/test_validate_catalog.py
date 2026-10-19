@@ -190,6 +190,45 @@ def test_proof_mode_on_web_class_fails():
         assert "mobile-only field" in out
 
 
+def test_verticals_field_validation():
+    cat = _load_real()
+    cat["classes"][0]["verticals"] = ["crypto"]  # legal: a vertical-conditional class
+    with tempfile.TemporaryDirectory() as tmp:
+        cpath = _write(tmp, "cat.json", cat)
+        rc, out = run(catalog=cpath)
+        assert rc == 0, f"a well-formed verticals array must pass, rc={rc}: {out}"
+
+
+def test_bad_vertical_value_fails():
+    cat = _load_real()
+    cat["classes"][0]["verticals"] = ["quant"]
+    with tempfile.TemporaryDirectory() as tmp:
+        cpath = _write(tmp, "cat.json", cat)
+        rc, out = run(catalog=cpath)
+        assert rc == 1, f"unknown vertical value must fail, rc={rc}: {out}"
+        assert "verticals has unknown value" in out
+
+
+def test_empty_verticals_fails():
+    cat = _load_real()
+    cat["classes"][0]["verticals"] = []  # universal means ABSENT, not empty
+    with tempfile.TemporaryDirectory() as tmp:
+        cpath = _write(tmp, "cat.json", cat)
+        rc, out = run(catalog=cpath)
+        assert rc == 1, f"empty verticals array must fail, rc={rc}: {out}"
+        assert "non-empty array or absent" in out
+
+
+def test_meta_vertical_vocab_declared():
+    cat = _load_real()
+    cat["meta"]["verticals"] = ["crypto", "bank"]  # incomplete vocabulary
+    with tempfile.TemporaryDirectory() as tmp:
+        cpath = _write(tmp, "cat.json", cat)
+        rc, out = run(catalog=cpath)
+        assert rc == 1, f"meta.verticals drift must fail, rc={rc}: {out}"
+        assert "canonical vertical vocabulary" in out
+
+
 def test_mobile_classes_shaped():
     """The 15 MAS-* rows obey the mobile design invariants."""
     cat = _load_real()

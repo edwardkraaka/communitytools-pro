@@ -9,7 +9,7 @@ FLEET_DIR="$STACK/fleet"
 WS=/root/communitytools/projects/pentest       # = /workspace in containers
 KALI_STATE=/root/kali-state
 ENGAGE_REG="$STACK/engagements"
-BOX_IP=4.222.217.53
+BOX_IP=REDACTED-BOX-IP
 IMAGE=kali-claude-eng:latest
 
 fleet_log() {  # fleet_log <runid> <msg...>

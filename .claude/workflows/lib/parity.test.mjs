@@ -59,14 +59,15 @@ const GOVERNOR = ['cureLoopDecision', 'coverageDecision', 'shouldInlineValidate'
 // counts as clean. skill-update cannot call the content-guard WORKFLOW instead —
 // htb-solve.js invokes skill-update via workflow(), and nesting is one level only.
 const GUARD = ['guardCmd', 'TOOL_REPORT_SCHEMA', 'transportPrompt', 'usablePayload', 'laneVerdict', 'denylistLaneOk'];
+const RUNG = ['normalizeVertical', 'IMPACT_RUNGS', 'financialHarmRung', 'impactRungs'];
 const EXPECT = {
-  'validate-findings.js': ['severityBand', 'riskBucket', 'riskScore', 'exposureFor', 'normVector', 'cveReconcile', 'EVIDENCE_MANIFEST', 'evidenceComplete', 'computeVerdict', 'finalPoc', 'round4', ...LANE],
+  'validate-findings.js': ['severityBand', 'riskBucket', 'riskScore', 'exposureFor', 'normVector', 'cveReconcile', 'EVIDENCE_MANIFEST', 'evidenceComplete', 'computeVerdict', 'finalPoc', 'round4', ...LANE, ...RUNG],
   // coordinator-loop embeds the WHOLE interleaved validation lane (verdict + governor + prompts).
-  'coordinator-loop.js': [...VERDICT, ...GOVERNOR, ...LANE],
+  'coordinator-loop.js': [...VERDICT, ...GOVERNOR, ...LANE, ...RUNG],
   // skill-update embeds the whole promote/write/gate lane — every decision it makes.
   'skill-update.js': ['SCRUB_PATTERNS', 'scrubCheck', 'capFor', 'capBudget', 'promotionGate', 'writeGate', 'skillUpdateGate', 'skillAgentBudget', 'buildChangeReport', ...GUARD],
   'content-guard.js': [...GUARD],
-  'pentest-engagement.js': ['severityBand', 'normalizeAssess', 'reconcileAssessed', 'finalizeGate', 'bumpVersion', 'scopeDiff', 'resolveEngagementMeta', 'detectAllowlist', 'resolveGeoZones', 'resumeSchedule', 'classifyEngagement'],
+  'pentest-engagement.js': ['severityBand', 'normalizeAssess', 'reconcileAssessed', 'finalizeGate', 'bumpVersion', 'scopeDiff', 'resolveEngagementMeta', 'detectAllowlist', 'resolveGeoZones', 'resumeSchedule', 'classifyEngagement', ...RUNG],
 };
 
 // Scalar constants that must be identical everywhere they appear.
