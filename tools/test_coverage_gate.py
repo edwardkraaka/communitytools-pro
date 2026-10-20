@@ -914,3 +914,110 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# --- Seam C: vertical-conditional coverage applicability ----------------------
+# A class MAY declare `verticals` (validated by validate_catalog.py): it then
+# applies only to assets whose vertical is in that array. Today's 39 classes are
+# all universal — these tests use a synthetic catalog to pin the mechanism the
+# dispatch layer (and future vertical-conditional classes) relies on.
+
+SYN_CATALOG = {
+    "meta": {"version": "test", "class_count": 2,
+             "verticals": ["crypto", "bank", "fintech", "other"]},
+    "classes": [
+        {"class_id": "T-UNIVERSAL", "taxonomy": "Test", "title": "universal class",
+         "scope": "asset", "key_by": "asset_tag", "applies_when": {"always": True},
+         "negative_kind": "none", "min_vantages": 0, "technique_ref": "tools/coverage_catalog.py"},
+        {"class_id": "T-CRYPTO-ONLY", "taxonomy": "Test", "title": "crypto-conditional class",
+         "scope": "asset", "key_by": "asset_tag", "applies_when": {"always": True},
+         "negative_kind": "none", "min_vantages": 0, "technique_ref": "tools/coverage_catalog.py",
+         "verticals": ["crypto"]},
+    ],
+}
+
+
+def syn_asset(tag, vertical=None, kind="web"):
+    a = {"asset_tag": tag, "kind": kind, "dir": "/tmp/" + tag,
+         "units": [], "listener_flags": {}, "asset_flags": set(),
+         "open_listeners": [], "surface_hosts": [], "recon_hosts": []}
+    if vertical is not None:
+        a["vertical"] = vertical
+    return a
+
+
+def test_vertical_applies_membership():
+    sys.path.insert(0, HERE)
+    from coverage_catalog import vertical_applies
+    cls = SYN_CATALOG["classes"][1]
+    assert vertical_applies(cls, "crypto") is True
+    assert vertical_applies(cls, "bank") is False
+    assert vertical_applies(cls, None) is True, "unknown vertical must fail SAFE (keep the obligation)"
+    assert vertical_applies(cls, "nonsense") is True, "unknown vertical must fail safe"
+    assert vertical_applies(SYN_CATALOG["classes"][0], "bank") is True, "no verticals -> universal"
+
+
+def test_vertical_conditional_enumeration_and_na_record():
+    sys.path.insert(0, HERE)
+    from enumerate_cells import cells_for_asset
+    # matching vertical: the conditional class enumerates
+    cells = cells_for_asset(SYN_CATALOG, syn_asset("a1", "crypto"))
+    assert {c["class_id"] for c in cells} == {"T-UNIVERSAL", "T-CRYPTO-ONLY"}
+    # non-matching vertical: zero cells for the conditional class, na recorded with justification
+    na = []
+    cells = cells_for_asset(SYN_CATALOG, syn_asset("a2", "bank"), na)
+    assert {c["class_id"] for c in cells} == {"T-UNIVERSAL"}, f"bank asset must not owe the crypto class: {cells}"
+    assert len(na) == 1 and na[0]["class_id"] == "T-CRYPTO-ONLY"
+    assert na[0]["vertical"] == "bank" and "crypto" in na[0]["justification"]
+    # unknown vertical: fail-safe — the obligation does not shrink
+    na = []
+    cells = cells_for_asset(SYN_CATALOG, syn_asset("a3"), na)
+    assert {c["class_id"] for c in cells} == {"T-UNIVERSAL", "T-CRYPTO-ONLY"}, "unclassified asset keeps full obligation"
+    assert na == []
+
+
+def test_build_records_vertical_and_vertical_na():
+    sys.path.insert(0, HERE)
+    import enumerate_cells as ec
+    tmp = tempfile.mkdtemp()
+    # engagement with a bank asset: vertical read off surface.json
+    wjson(os.path.join(tmp, "bankapp", "recon", "inventory", "surface.json"),
+          {"schema": "surface/v2", "asset_tag": "bankapp", "vertical": "bank", "apex": "demo.test",
+           "units": [{"unit_id": "u1", "type": "endpoint", "address": "https://api.demo.test/v1/x", "flags": ["input_sink"]}]})
+    # real catalog: all-universal, so a vertical label neither adds nor removes cells
+    result = ec.build(tmp, single=False)
+    assert result["assets"]["bankapp"]["vertical"] == "bank", f"vertical must surface in assets meta: {result['assets']}"
+    assert result["vertical_na"] == [], "today's catalog is all-universal — no vertical_na"
+    # the same engagement under a catalog with a crypto-conditional class records the na
+    saved = ec.load_catalog
+    try:
+        ec.load_catalog = lambda path=None: SYN_CATALOG
+        result = ec.build(tmp, single=False)
+        assert result["assets"]["bankapp"]["vertical"] == "bank"
+        assert {n["class_id"] for n in result["vertical_na"]} == {"T-CRYPTO-ONLY"}, \
+            f"bank asset must record the crypto-conditional class as vertical-na: {result['vertical_na']}"
+        assert result["vertical_na"][0]["asset_tag"] == "bankapp"
+    finally:
+        ec.load_catalog = saved
+
+
+def test_vertical_na_class_marked_na_is_not_false_na():
+    # Under the REAL catalog the gate is unchanged (all classes universal): a
+    # vertical label on an asset neither adds nor removes obligations, and NA on
+    # an applicable cell remains fabrication regardless of vertical.
+    tmp = tempfile.mkdtemp()
+    hd = net_host(tmp, "10.0.0.30", [{"port": 22, "state": "open", "service": "ssh", "product": "OpenSSH", "version": "8.9"}])
+    hj = os.path.join(hd, "host.json")
+    d = json.load(open(hj))
+    d["vertical"] = "bank"
+    wjson(hj, d)
+    cells = load_cells(tmp, hd)
+    assert cells, "bank-labeled network host must enumerate cells identically"
+    append_experiment(hd, "E-1")
+    some = cells[0]
+    wjson(os.path.join(hd, "coverage.json"), [
+        {"class_id": some["class_id"], "applicability": "applicable", "status": "pending",
+         "units_tested": [{"key": some["scope_key"], "status": "NA", "e_id": "E-1"}]}])
+    _, _, m = gate(hd, single=True)
+    assert any(r["reason"] == "na_fabrication" for r in m["missing_cells"]), \
+        "vertical labels never license NA on a code-applicable cell"

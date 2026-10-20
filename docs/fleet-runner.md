@@ -67,10 +67,13 @@ and exploitation mandate (canonical homes: `skills/coordination/reference/princi
 - **Four impact rungs** — shell or box/machine access by any path (reverse shell,
   webshell, RCE session, or single-shot SSH login with a discovered key),
   admin/service-account access, a database exfiltration proof (auth proof +
-  bounded enumeration ≤3 rows), or quantified financial harm / **fund PoC** on
-  crypto targets (signing authority demonstrated by a signed message from the
-  compromised key — broadcast nothing — plus funds-at-risk from Arkham
-  `ARKHAM_API_KEY`).
+  bounded enumeration ≤3 rows), or quantified financial harm — a
+  NON-DESTRUCTIVE proof of authority quantified per the target vertical's
+  overlay (`skills/coordination/reference/verticals/`): crypto is a **fund
+  PoC** (signed message from the compromised key — broadcast nothing — plus
+  funds-at-risk from Arkham `ARKHAM_API_KEY`); bank/fintech and other verticals
+  have their own quantification. Full definitions live at the canonical homes
+  above.
 - **High/Critical requires a demonstrated rung.** Reachable-but-untried (a
   discovered key/wallet left untried included) caps at Medium +
   `needs_live_confirmation`. Transient/reversible blockers score at root cause
@@ -78,9 +81,10 @@ and exploitation mandate (canonical homes: `skills/coordination/reference/princi
 - **RoE default-authorization posture.** The rungs are the authorized default;
   "did not execute because of RoE" is banned for anything inside the mandate;
   genuine out-of-scope conflicts file a CIR and testing continues.
-- **Crypto-native coverage** is a mandatory asset class for crypto-company
-  targets (`blockchain-security` alongside web/API), with funds-at-risk
-  quantified from on-chain data.
+- **Vertical-conditional coverage** mounts `blockchain-security` (+
+  `threat-intel`) as a mandatory asset class when the target's vertical is
+  crypto (`skills/pentest-engagement/SKILL.md` "Vertical overlays dispatch"),
+  with funds-at-risk quantified from on-chain data.
 
 ## Preflight and parking
 

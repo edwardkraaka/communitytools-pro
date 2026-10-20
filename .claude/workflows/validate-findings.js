@@ -45,6 +45,10 @@ const VOTES = Number(a.votes) > 0 ? Math.floor(Number(a.votes)) : DEFAULT_VOTES
 const MAX_FINDINGS = Number(a.max_findings) > 0 ? Math.floor(Number(a.max_findings)) : 50
 const BUSINESS_TIER = a.business_tier || 'unknown' // crown_jewel|revenue|support|dev|unknown
 const PLATFORM = a.platform || 'generic'
+// Target vertical (P1 classification layer; scope-file declaration wins over the
+// OSINT-detected label): selects the financial-harm quantification overlay —
+// ADVISORY ONLY, never authority (scope/RoE/prohibitions/CIR govern identically).
+const VERTICAL = normalizeVertical(a.vertical)
 // Frozen-operand paths (C1). When the orchestrator supplies them the CVE/KEV
 // numbers are read from the engagement snapshots (deterministic); standalone /
 // regression runs omit them (live fetch, fresh drift detection).
@@ -168,6 +172,43 @@ function terminalSubdir(verdict) {
   if (verdict === 'REJECTED') return 'false-positives'
   return 'dropped'
 }
+// ---- SINGLE-SOURCE IMPACT RUNGS + VERTICAL OVERLAYS (Seam B) ----------------
+// Byte-identical inline copy of wf-helpers.mjs (sandbox forbids import; parity.test.mjs
+// fails CI on drift). Composed by the false-high calibration (refuterPrompt); MD
+// source of truth = severity-calibration.md rule 6 + verticals/<vertical>.md.
+// ADVISORY label: OVERLAYS SELECT CONTENT, NEVER AUTHORITY.
+function normalizeVertical(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return ['crypto', 'bank', 'fintech', 'other'].includes(s) ? s : 'other';
+}
+
+const IMPACT_RUNGS = {
+  rungs: [
+    'shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password)',
+    'admin/SSA access',
+    'a database exfiltration proof',
+  ],
+  // Universal financial-harm definition (severity-calibration.md rule 6).
+  financial_universal: 'quantified financial harm — value-at-risk demonstrated by a NON-DESTRUCTIVE proof of authority appropriate to the asset (the proof demonstrates control; it never executes, moves, or broadcasts anything)',
+  // Per-vertical quantification overlays (verticals/<vertical>.md). fintech rides
+  // the bank funds-movement definition; other stays on the universal requirement.
+  financial_overlay: {
+    crypto: 'on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus funds-at-risk quantified from on-chain data (treasury/TVL/escrow balances, Arkham via ARKHAM_API_KEY)',
+    bank: 'on bank: demonstrated authority over funds movement on a reversible own-tenant path - a non-destructive create-then-delete proof on the client\'s own transfer/mandate flow, NEVER a live transfer to any third party - or quantified account exposure (number + aggregate balance of accounts the position reaches)',
+    fintech: 'on fintech: demonstrated authority over funds movement on a reversible own-tenant path (the bank overlay, verticals/bank.md) - a non-destructive create-then-delete proof on the client\'s own transfer/mandate/payment flow, NEVER a live transfer to any third party - or quantified account/payment exposure',
+    other: 'on non-financial targets: quantify the value-at-risk concretely (affected records, services, SLA exposure); never claim financial harm without a number',
+  },
+};
+
+function financialHarmRung(vertical) {
+  const v = normalizeVertical(vertical);
+  return IMPACT_RUNGS.financial_universal + ' — ' + IMPACT_RUNGS.financial_overlay[v];
+}
+
+function impactRungs(vertical) {
+  return [...IMPACT_RUNGS.rungs, financialHarmRung(vertical)].join(', or ');
+}
+
 function nvdKevText(P = {}) {
   const nvd = P.nvd_cache_dir ? `python3 tools/nvd-lookup.py --cache-dir ${P.nvd_cache_dir} <CVE-ID>` : `python3 tools/nvd-lookup.py <CVE-ID>`
   const kev = P.nvd_cache_dir ? `python3 tools/kev-lookup.py --cache-dir ${P.nvd_cache_dir} <CVE-ID> (reads the frozen ${P.kev_snapshot || 'kev-snapshot.json'}, create-on-miss)` : `WebFetch https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json and check whether the CVE is listed`
@@ -185,7 +226,7 @@ function nvdKevText(P = {}) {
 // scores v4.0/v3.1/v3.0/v2.0; the checks agent is the tool-runner); reconcile in JS
 // (cveReconcile). The NVD/KEV instruction is single-sourced via nvdKevText and
 // frozen per-engagement (nvd_cache_dir/kev_snapshot) for deterministic operands.
-const P = { OUTPUT_DIR, TARGET, BUSINESS_TIER, REPAIR, nvd_cache_dir: NVD_CACHE_DIR, kev_snapshot: KEV_SNAPSHOT }
+const P = { OUTPUT_DIR, TARGET, BUSINESS_TIER, VERTICAL, REPAIR, nvd_cache_dir: NVD_CACHE_DIR, kev_snapshot: KEV_SNAPSHOT }
 P.NVD_KEV = nvdKevText(P)
 
 // ============================================================================
@@ -390,7 +431,7 @@ function checksPrompt(f, P = {}) {
 function refuterPrompt(f, i, P = {}) {
   return `ROLE: ADVERSARIAL VALIDATOR #${i} (blind). Your job is to REFUTE finding ${f.id}. You see ONLY its evidence package — NOT any validator's verdict, NOT attack-chain/session-memory, NOT other findings. Default to skepticism: if a claim is not independently supported, it is refuted.\n\n` +
     `Read ${f.dir}/description.md, ${f.dir}/poc.py, ${f.dir}/poc_output.txt, ${f.dir}/evidence/ (including evidence/validation/poc-rerun-output.txt, cve-verification.md, verification-script.py). For a CVE, independently sanity-check against the SAME frozen operands the validator used: ${(P.NVD_KEV || nvdKevText(P))[1]} Does the claimed CVSS vector actually yield the claimed score? does NVD agree? For the exploit: does the captured output actually PROVE the vulnerability, or is the "evidence" incidental/ambiguous/self-asserted? Could the output be produced on a non-vulnerable target? Are the factual claims present in raw scan output?\n\n` +
-    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password), admin/SSA access, a database exfiltration proof, or quantified financial harm (on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key, broadcast NOTHING, plus funds-at-risk) — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
+    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: ${impactRungs(P.VERTICAL)} — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
     `Return VOTE_SCHEMA: refuted (true if you found a real reason to doubt the finding, the score, or the CVE), reason, and weakest_link (the single most doubtful element).`;
 }
 

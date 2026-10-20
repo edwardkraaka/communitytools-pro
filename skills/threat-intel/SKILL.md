@@ -1,6 +1,6 @@
 ---
 name: threat-intel
-description: Standing threat-intelligence base for engagements — live CVE/exploit intel sources, recent blockchain-hack incident anatomy with unconventional entry vectors, exploited-CVE detection signatures, zero-day hunter methodology, and the deterministic target-triage procedure that converts a fingerprinted stack into ranked hunt hypotheses. Consult at OSINT phase 5 and before the first active-phase batch; mandatory for crypto/web3 targets.
+description: Standing threat-intelligence base for engagements — live CVE/exploit intel sources, recent blockchain-hack incident anatomy with unconventional entry vectors, exploited-CVE detection signatures, zero-day hunter methodology, and the deterministic target-triage procedure that converts a fingerprinted stack into ranked hunt hypotheses. Consult at OSINT phase 5 and before the first active-phase batch; mounted as a mandatory class on crypto/web3 vertical targets via the crypto overlay (skills/coordination/reference/verticals/crypto.md).
 ---
 
 # Threat-Intel
@@ -11,7 +11,7 @@ Standing intelligence base (generic public research; zero engagement data). The 
 
 - **OSINT phase 5** (Code Intelligence) — after repos/stack are mapped, run the [target-triage.md](reference/target-triage.md) procedure over the fingerprint.
 - **Before the first active-phase batch** — the kickoff/stage-2 mandate hands TI Hypotheses to the coordinator; consume them as the first exploit lanes (per spawning-recipes first-batch composition).
-- **Every crypto/web3 target** — incident anatomy (wallet infra, custody, third-party integrations, off-chain services) is the leading edge.
+- **Every crypto/web3 vertical target** (the vertical overlay mounts this skill as mandatory — see skills/coordination/reference/verticals/crypto.md) — incident anatomy (wallet infra, custody, third-party integrations, off-chain services) is the leading edge.
 - **Coordinator P4b reset** — creative-research Source 0.
 
 ## Digest contents

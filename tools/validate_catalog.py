@@ -25,6 +25,8 @@ Checks (all hard):
  10. no dead flags: every vocabulary flag is referenced by >= 1 applies_when
  11. every technique_ref resolves to a file on disk (any #anchor is stripped)
  12. proof_mode, where present, is in PROOF_MODES and appears only on MAS-* rows
+ 14. verticals, where present, is a non-empty subset of the vertical vocabulary
+     (meta.verticals must declare the vocabulary itself)
 """
 from __future__ import annotations
 
@@ -42,6 +44,7 @@ from coverage_catalog import (
     PROOF_MODES,
     REPO,
     SCOPES,
+    VERTICALS,
     CatalogError,
     collect_flags,
     eval_applies,
@@ -117,6 +120,16 @@ def validate(catalog: dict, md_path) -> list[str]:
                 errors.append(f"{tag} proof_mode {r['proof_mode']!r} not in {sorted(PROOF_MODES)}")
             if not str(cid).startswith("MAS-"):
                 errors.append(f"{tag} proof_mode is a mobile-only field but {cid!r} is not a MAS-* class")
+        # 14. verticals (optional): a vertical-conditional class applies only to
+        #     assets whose vertical is listed; absent/empty -> universal.
+        if "verticals" in r and r["verticals"] is not None:
+            v = r["verticals"]
+            if not isinstance(v, list) or not v:
+                errors.append(f"{tag} verticals must be a non-empty array or absent (empty means universal — just omit it)")
+            else:
+                bad = [x for x in v if x not in VERTICALS]
+                if bad:
+                    errors.append(f"{tag} verticals has unknown value(s) {bad} (vocabulary: {sorted(VERTICALS)})")
 
     # 1. uniqueness
     dupes = [c for c, n in Counter(ids).items() if n > 1]
@@ -140,6 +153,9 @@ def validate(catalog: dict, md_path) -> list[str]:
         errors.append(f"meta.derived_flags != the {len(DERIVED_FLAGS)} canonical derived flags "
                       f"(missing {sorted(DERIVED_FLAGS - set(meta.get('derived_flags', [])))}, "
                       f"extra {sorted(set(meta.get('derived_flags', [])) - DERIVED_FLAGS)})")
+    # 7b. vertical vocabulary declared in meta (same accountability pattern)
+    if set(meta.get("verticals", [])) != set(VERTICALS):
+        errors.append(f"meta.verticals {meta.get('verticals')!r} != the canonical vertical vocabulary {sorted(VERTICALS)}")
 
     # 10. no dead flags — a vocabulary flag no predicate references is dead weight
     #     that silently never enumerates anything.

@@ -42,6 +42,7 @@ from coverage_catalog import (
     catalog_by_id,
     eval_applies,
     load_catalog,
+    vertical_applies,
 )
 
 # --- network service/port -> code-derived-flag heuristics --------------------
@@ -101,6 +102,14 @@ def web_unit_flags(unit: dict) -> set:
     return flags
 
 
+def _norm_vertical(v) -> "str | None":
+    """Normalize a vertical label off the surface JSON (' crypto ' -> 'crypto').
+    Unknown/absent stays None: vertical_applies() treats it as matching every
+    vertical-conditional class (fail-safe — no shrink on missing classification)."""
+    v = str(v or "").strip().lower()
+    return v or None
+
+
 def load_web_asset(asset_dir: str) -> dict | None:
     spath = os.path.join(asset_dir, "recon", "inventory", "surface.json")
     if not os.path.isfile(spath):
@@ -137,6 +146,7 @@ def load_web_asset(asset_dir: str) -> dict | None:
     recon_hosts = _recon_hosts(asset_dir)
     return {
         "asset_tag": asset_tag, "kind": "web", "dir": asset_dir,
+        "vertical": _norm_vertical(surf.get("vertical")),
         "units": unit_records, "listener_flags": listener_flags, "asset_flags": asset_flags,
         "open_listeners": sorted(listener_flags.keys()),
         "surface_hosts": sorted(surface_hosts), "recon_hosts": sorted(recon_hosts),
@@ -240,6 +250,7 @@ def load_network_host(host_json_path: str) -> dict | None:
         asset_flags.add("has_api")
     return {
         "asset_tag": ip, "kind": "network", "dir": os.path.dirname(host_json_path),
+        "vertical": _norm_vertical(host.get("vertical")),
         "units": [], "listener_flags": listener_flags, "asset_flags": asset_flags,
         "open_listeners": sorted(open_listeners),
         "surface_hosts": [ip], "recon_hosts": [],
@@ -307,6 +318,7 @@ def load_mobile_app(asset_dir: str) -> dict | None:
     # the gate blocks rather than reporting a vacuous 1.0.
     return {
         "asset_tag": asset_tag, "kind": "mobile", "dir": asset_dir,
+        "vertical": _norm_vertical(surf.get("vertical")),
         "platform": (surf.get("platform") or "").lower() or None,
         "package": surf.get("package"), "version": surf.get("version"),
         "artifact_sha256": surf.get("artifact_sha256"),
@@ -318,10 +330,23 @@ def load_mobile_app(asset_dir: str) -> dict | None:
     }
 
 
-def cells_for_asset(catalog: dict, asset: dict) -> list:
+def cells_for_asset(catalog: dict, asset: dict, vertical_na: list | None = None) -> list:
+    """Applicable cells for one asset. A class failing vertical_applies() is a
+    VERTICAL not_applicable: it enumerates zero cells and is recorded (when a
+    vertical_na list is passed) with its vertical justification — the agent's
+    coverage ledger may honestly mark such a class 'NA', and the gate will agree
+    because no code-applicable cell exists for it."""
     cells = []
     by_id = catalog_by_id(catalog)
     for cid, cls in by_id.items():
+        if not vertical_applies(cls, asset.get("vertical")):
+            if vertical_na is not None:
+                vertical_na.append({
+                    "class_id": cid, "taxonomy": cls["taxonomy"], "title": cls["title"],
+                    "asset_tag": asset["asset_tag"], "vertical": asset.get("vertical"),
+                    "justification": f"vertical-conditional class: applies only to {cls.get('verticals')}, asset vertical is {asset.get('vertical')!r}",
+                })
+            continue
         scope = cls["scope"]
         base = {"class_id": cid, "taxonomy": cls["taxonomy"], "title": cls["title"],
                 "scope": scope, "negative_kind": cls["negative_kind"], "min_vantages": cls["min_vantages"],
@@ -374,6 +399,7 @@ def build(root: str, single_asset: bool) -> dict:
         assets = discover_assets(root)
 
     all_cells = []
+    vertical_na = []
     asset_meta = {}
     seen_tags: dict = {}
     for a in assets:
@@ -385,9 +411,10 @@ def build(root: str, single_asset: bool) -> dict:
                 f"duplicate asset_tag {a['asset_tag']!r} in {seen_tags[a['asset_tag']]} "
                 f"and {a['dir']} — asset_tag must be unique across the engagement")
         seen_tags[a["asset_tag"]] = a["dir"]
-        all_cells.extend(cells_for_asset(catalog, a))
+        all_cells.extend(cells_for_asset(catalog, a, vertical_na))
         asset_meta[a["asset_tag"]] = {
             "kind": a["kind"], "dir": os.path.relpath(a["dir"], root),
+            "vertical": a.get("vertical"),
             "platform": a.get("platform"),
             "open_listeners": a["open_listeners"],
             "surface_hosts": a["surface_hosts"], "recon_hosts": a["recon_hosts"],
@@ -398,6 +425,7 @@ def build(root: str, single_asset: bool) -> dict:
         "catalog_version": catalog.get("meta", {}).get("version"),
         "assets": asset_meta,
         "cells": all_cells,
+        "vertical_na": sorted(vertical_na, key=lambda n: (n["asset_tag"], n["class_id"])),
         "per_class_counts": dict(Counter(c["class_id"] for c in all_cells)),
         "total_cells": len(all_cells),
     }

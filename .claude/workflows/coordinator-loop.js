@@ -46,6 +46,13 @@ const GOAL = a.goal || 'Obtain the engagement objective (e.g. read the protected
 const SCOPE = a.scope || ''
 const SKILLS_HINT = a.skills_hint || ''
 const PLATFORM = a.platform || 'generic'
+// Target vertical (P1 classification layer): 'crypto' | 'bank' | 'fintech' | 'other'.
+// Advisory label from tools/vertical_classify.py (scope-file declaration wins);
+// selects the financial-harm quantification overlay (verticals/<vertical>.md) and
+// vertical-conditional skills — never scope, RoE flags, prohibitions, or the CIR
+// channel (overlays select content, never authority). Unknown -> the universal
+// 'other' overlay, which carries the same NON-DESTRUCTIVE proof requirement.
+const VERTICAL = normalizeVertical(a.vertical)
 // Which surface file this asset owns. A mobile app bundle is NOT an HTTP surface:
 // handed an app dir, the web bootstrap below would manufacture a surface/v2 for an
 // APK and THINK would then drive web attack classes at a binary. Renaming the file
@@ -105,6 +112,43 @@ const REPORT_FORMAT = a.report_format === 'transilience' ? 'transilience' : 'htb
 // OUTPUT_DIR: caller may pass one; otherwise Bootstrap derives it.
 let OUTPUT_DIR = a.output_dir || null
 
+// ---- SINGLE-SOURCE IMPACT RUNGS + VERTICAL OVERLAYS (Seam B) ----------------
+// Byte-identical inline copy of wf-helpers.mjs (sandbox forbids import; parity.test.mjs
+// fails CI on drift). Composed by EXPLOIT_DEPTH, the SEVERITY blocks, the false-high
+// calibration and coverage goals; MD source of truth = severity-calibration.md rule 6
+// + verticals/<vertical>.md. ADVISORY label: OVERLAYS SELECT CONTENT, NEVER AUTHORITY.
+function normalizeVertical(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return ['crypto', 'bank', 'fintech', 'other'].includes(s) ? s : 'other';
+}
+
+const IMPACT_RUNGS = {
+  rungs: [
+    'shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password)',
+    'admin/SSA access',
+    'a database exfiltration proof',
+  ],
+  // Universal financial-harm definition (severity-calibration.md rule 6).
+  financial_universal: 'quantified financial harm — value-at-risk demonstrated by a NON-DESTRUCTIVE proof of authority appropriate to the asset (the proof demonstrates control; it never executes, moves, or broadcasts anything)',
+  // Per-vertical quantification overlays (verticals/<vertical>.md). fintech rides
+  // the bank funds-movement definition; other stays on the universal requirement.
+  financial_overlay: {
+    crypto: 'on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus funds-at-risk quantified from on-chain data (treasury/TVL/escrow balances, Arkham via ARKHAM_API_KEY)',
+    bank: 'on bank: demonstrated authority over funds movement on a reversible own-tenant path - a non-destructive create-then-delete proof on the client\'s own transfer/mandate flow, NEVER a live transfer to any third party - or quantified account exposure (number + aggregate balance of accounts the position reaches)',
+    fintech: 'on fintech: demonstrated authority over funds movement on a reversible own-tenant path (the bank overlay, verticals/bank.md) - a non-destructive create-then-delete proof on the client\'s own transfer/mandate/payment flow, NEVER a live transfer to any third party - or quantified account/payment exposure',
+    other: 'on non-financial targets: quantify the value-at-risk concretely (affected records, services, SLA exposure); never claim financial harm without a number',
+  },
+};
+
+function financialHarmRung(vertical) {
+  const v = normalizeVertical(vertical);
+  return IMPACT_RUNGS.financial_universal + ' — ' + IMPACT_RUNGS.financial_overlay[v];
+}
+
+function impactRungs(vertical) {
+  return [...IMPACT_RUNGS.rungs, financialHarmRung(vertical)].join(', or ');
+}
+
 // Post-exploitation depth contract — appended wherever executors/validators are
 // briefed. A confirmed primitive is driven to the deepest NON-DESTRUCTIVE rung it
 // supports (detect -> confirm -> DATA ACCESS -> CODE EXECUTION); stopping at rung 1
@@ -117,7 +161,7 @@ const EXPLOIT_DEPTH = [
   '- ACCESS IN HAND (valid creds, exposed DB/admin/mgmt interface): attempt the authenticated DB login / admin surface single-shot with in-scope or source-leaked credentials — never spraying.',
   '- Every rung reached is evidence: raw output to evidence/, the rung recorded in the finding, create/connect/teardown logged in experiments.md. Prohibitions bound the rungs, not whether you climb.',
   '- CREDENTIALS IN HAND (found/leaked/source-discovered creds, API keys, session tokens): validate EVERY one single-shot on its identity endpoint (/me, /userinfo, kubectl auth whoami, STS GetCallerIdentity) the moment it is found — a found-but-unvalidated credential is an unproven lead, not a finding. Valid ones then climb the ACCESS IN HAND rung above.',
-  '- FINANCIAL/CRYPTO SURFACES: the financial-harm rung is a FUND POC — signing authority over at-risk funds demonstrated by a signed message from the compromised key (broadcast NOTHING, transfer NOTHING; the valid signature is the proof of control), plus funds-at-risk quantified from on-chain data (treasury/TVL/escrow balances, Arkham via ARKHAM_API_KEY).',
+  '- FINANCIAL SURFACES (' + VERTICAL + ' vertical; overlay skills/coordination/reference/verticals/' + VERTICAL + '.md): the financial-harm rung is ' + financialHarmRung(VERTICAL) + '.',
   '- SHELL ENDGAME: shell/box access counts however it is gained — reverse shell, webshell, an RCE session on the box — and any discovered private key or password additionally gets a single-shot SSH login attempt (BatchMode) on an in-scope host or engagement-owned jump box. A found-but-untried key is a lead, not a rung.',
 ].join('\n')
 
@@ -576,7 +620,7 @@ function checksPrompt(f, P = {}) {
 function refuterPrompt(f, i, P = {}) {
   return `ROLE: ADVERSARIAL VALIDATOR #${i} (blind). Your job is to REFUTE finding ${f.id}. You see ONLY its evidence package — NOT any validator's verdict, NOT attack-chain/session-memory, NOT other findings. Default to skepticism: if a claim is not independently supported, it is refuted.\n\n` +
     `Read ${f.dir}/description.md, ${f.dir}/poc.py, ${f.dir}/poc_output.txt, ${f.dir}/evidence/ (including evidence/validation/poc-rerun-output.txt, cve-verification.md, verification-script.py). For a CVE, independently sanity-check against the SAME frozen operands the validator used: ${(P.NVD_KEV || nvdKevText(P))[1]} Does the claimed CVSS vector actually yield the claimed score? does NVD agree? For the exploit: does the captured output actually PROVE the vulnerability, or is the "evidence" incidental/ambiguous/self-asserted? Could the output be produced on a non-vulnerable target? Are the factual claims present in raw scan output?\n\n` +
-    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password), admin/SSA access, a database exfiltration proof, or quantified financial harm (on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key, broadcast NOTHING, plus funds-at-risk) — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
+    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: ${impactRungs(P.VERTICAL)} — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
     `Return VOTE_SCHEMA: refuted (true if you found a real reason to doubt the finding, the score, or the CVE), reason, and weakest_link (the single most doubtful element).`;
 }
 
@@ -809,7 +853,7 @@ const COVERAGE_DISCIPLINE = MODE === 'coverage' ? '\n' + [
   '- REAL TOOLS FIRST for recon: crt.sh/certspotter/subfinder (surface), sslscan (TLS), nuclei (templated exposure), httpx, Burp/Playwright — before any bespoke requests script. Record an unavailable tool-class as a limitation; never skip it silently.',
   '- ACTIVE EXPLOITATION (RoE: ' + (ROE.reversible_writes ? 'reversible writes AUTHORIZED' : 'read-only') + '): ' + (ROE.reversible_writes ? 'a create-then-delete in your OWN org/tenant is NOT destructive. If a finding can only be proven by a write (connector base_url SSRF, mass-assignment), do the minimal write + clean up and log both in experiments.md. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'no state changes — read-only.'),
   ...EXPLOIT_DEPTH.split('\n'),
-  '- SEVERITY (' + SEVERITY_RUBRIC + '): score C/I/A on the confirmed ROOT CAUSE per formats/transilience-report-style/pentest-report.md §7.1. A transient/reversible data-state (empty table, deleted records, IMDSv2, toggled-off feature) is NOT a mitigating factor and NOT a severity ceiling; record the demonstration boundary as confidence, not as a C/I/A reduction. A High/Critical must rest on a DEMONSTRATED impact rung (shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password), admin/SSA access, a database exfiltration proof, or quantified financial harm (on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key, broadcast NOTHING, plus funds-at-risk)); a rung that was reachable but never executed — including a discovered key or wallet left untried — caps the finding at Medium + needs_live_confirmation (severity-calibration.md rule 6 — the cap is the inverse of the exploitation mandate: if the rung was attempted and blocked by a transient state, the root-cause score stands).',
+  '- SEVERITY (' + SEVERITY_RUBRIC + '): score C/I/A on the confirmed ROOT CAUSE per formats/transilience-report-style/pentest-report.md §7.1. A transient/reversible data-state (empty table, deleted records, IMDSv2, toggled-off feature) is NOT a mitigating factor and NOT a severity ceiling; record the demonstration boundary as confidence, not as a C/I/A reduction. A High/Critical must rest on a DEMONSTRATED impact rung (' + impactRungs(VERTICAL) + '); a rung that was reachable but never executed — including a discovered key or wallet left untried — caps the finding at Medium + needs_live_confirmation (severity-calibration.md rule 6 — the cap is the inverse of the exploitation mandate: if the rung was attempted and blocked by a transient state, the root-cause score stands).',
   '- BLOCKED-ON-CREDS IS FORBIDDEN until the wall is proven a true credential gap, not a self-imposed method restriction. If a class is reachable with the creds in hand (incl. an unauthenticated probe or a reversible own-org write), it is NOT blocked — test it.',
 ].join('\n') : ''
 
@@ -885,7 +929,7 @@ const reconDigest = reconResults.filter(Boolean).map((r, i) => `### ${RECON_ANGL
 
 const bootstrap = await agent(
   `${DISCIPLINE}\n\nROLE: coordinator bootstrap (P1 synthesis). You seed the three engagement state files from recon. Read skills/coordination/reference/bookkeeping.md (for the verbatim attack-chain.md skeleton + experiments.md header) and skills/coordination/reference/preflight-checklist.md.\n\n` +
-  `TARGET: ${TARGET}\nPLATFORM: ${PLATFORM}\nSCOPE: ${SCOPE}\nGOAL: ${GOAL}\nSKILLS_HINT: ${SKILLS_HINT || '<none>'}\n` +
+  `TARGET: ${TARGET}\nPLATFORM: ${PLATFORM}\nSCOPE: ${SCOPE}\nGOAL: ${GOAL}\nSKILLS_HINT: ${SKILLS_HINT || '<none>'}\nVERTICAL: ${VERTICAL} (advisory label; mounts the per-vertical quantification overlay skills/coordination/reference/verticals/${VERTICAL}.md alongside the universal rung discipline — selects content only, never scope/RoE/prohibitions)\n` +
   `OUTPUT_DIR: ${OUTPUT_DIR}\n\n` +
   `RECON DIGEST:\n${reconDigest}\n\n` +
   `Do:\n` +
@@ -964,7 +1008,7 @@ function execPrompt(mission, brief, missionId, predictedExpId) {
     (brief ? `\nRESEARCH_BRIEF (advisory, not gospel — report contradictions):\n${brief}\n` : '') +
     `\nProcedure: read source first; run the FULL escalation ladder (quickstart payloads -> encoding variants -> filter bypass -> cheat-sheet catalog -> PATT) before reporting failure; on success confirm by REPRODUCING 3x and capture a complete evidence package.\n` +
     (MODE === 'coverage'
-      ? `\nCOVERAGE-MODE EXECUTOR RULES:\n- RoE: ${ROE.reversible_writes ? 'a reversible own-org create-then-delete is AUTHORIZED to prove write-dependent findings (SSRF via a stored connector base_url, mass-assignment) — do the minimal write and ALWAYS clean up; log the create + cleanup. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'read-only; no state changes'}.\n${EXPLOIT_DEPTH}\n- SEVERITY: score on the confirmed ROOT CAUSE, not the demonstrated sub-impact; a transient/reversible condition (deleted data, IMDSv2, a toggled-off feature) is NOT a severity ceiling — record it as the demonstration boundary (poc_verified + a note), never as a C/I/A reduction (formats/transilience-report-style/pentest-report.md §7.1). A High/Critical must rest on a DEMONSTRATED impact rung (shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password), admin/SSA access, a database exfiltration proof, or quantified financial harm (on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key, broadcast NOTHING, plus funds-at-risk)); a rung that was reachable but never executed — including a discovered key or wallet left untried — caps the finding at Medium + needs_live_confirmation (severity-calibration.md rule 6 — the cap is the inverse of the exploitation mandate: if the rung was attempted and blocked by a transient state, the root-cause score stands).\n- SSRF: also mount skills/server-side/reference/scenarios/ssrf/stored-connector-url-ssrf.md and test the stored-URL/connector pattern (create a resource whose stored base_url/webhook the server later fetches -> point at 169.254.170.2 / a collaborator host -> trigger sync).\n`
+      ? `\nCOVERAGE-MODE EXECUTOR RULES:\n- RoE: ${ROE.reversible_writes ? 'a reversible own-org create-then-delete is AUTHORIZED to prove write-dependent findings (SSRF via a stored connector base_url, mass-assignment) — do the minimal write and ALWAYS clean up; log the create + cleanup. Prohibitions: ' + JSON.stringify(ROE.prohibitions || []) : 'read-only; no state changes'}.\n${EXPLOIT_DEPTH}\n- SEVERITY: score on the confirmed ROOT CAUSE, not the demonstrated sub-impact; a transient/reversible condition (deleted data, IMDSv2, a toggled-off feature) is NOT a severity ceiling — record it as the demonstration boundary (poc_verified + a note), never as a C/I/A reduction (formats/transilience-report-style/pentest-report.md §7.1). A High/Critical must rest on a DEMONSTRATED impact rung (${impactRungs(VERTICAL)}); a rung that was reachable but never executed — including a discovered key or wallet left untried — caps the finding at Medium + needs_live_confirmation (severity-calibration.md rule 6 — the cap is the inverse of the exploitation mandate: if the rung was attempted and blocked by a transient state, the root-cause score stands).\n- SSRF: also mount skills/server-side/reference/scenarios/ssrf/stored-connector-url-ssrf.md and test the stored-URL/connector pattern (create a resource whose stored base_url/webhook the server later fetches -> point at 169.254.170.2 / a collaborator host -> trigger sync).\n`
       : ``) +
     `WRITE (race-free — do NOT touch experiments.md, attack-chain.md, or session-memory.md; the coordinator owns those):\n` +
     `  - On a finding: OUTPUT_DIR/findings/finding-${missionId}/ with description.md, poc.py, poc_output.txt, evidence/ (must include evidence/raw-source.txt).\n` +
@@ -1028,7 +1072,7 @@ const findings = []
 // shared 1000-agent lifetime cap across the orchestrator's assets. agentsSpawned
 // approximates the real agent cost so backstopDecision can DEFER whole candidates
 // (never shrink the quorum — that would make the REJECT threshold run-dependent).
-const P = { OUTPUT_DIR, TARGET, BUSINESS_TIER, REPAIR, nvd_cache_dir: NVD_CACHE_DIR, kev_snapshot: KEV_SNAPSHOT }
+const P = { OUTPUT_DIR, TARGET, BUSINESS_TIER, REPAIR, VERTICAL, nvd_cache_dir: NVD_CACHE_DIR, kev_snapshot: KEV_SNAPSHOT }
 P.NVD_KEV = nvdKevText(P)
 const assetBudget = assessBudget({ assets: Number(a.assets) || 1, reserve: AGENT_RESERVE })
 const HARD_RESERVE = assetBudget.hardReserve

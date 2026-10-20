@@ -102,6 +102,29 @@ KEY_BY_FOR_SCOPE = {"unit": "unit_id", "host": "listener", "asset": "asset_tag"}
 # cells to a device-bearing mission).
 PROOF_MODES = {"static", "runtime", "either"}
 
+# The closed vertical vocabulary (P1 classification layer, tools/vertical_classify.py).
+# A class MAY declare an optional `verticals` array: the class then applies ONLY to
+# assets whose vertical is in that array (a vertical-conditional class). Absent /
+# empty -> universal (applies to every asset regardless of vertical). An asset with
+# an UNKNOWN vertical is treated as matching everything: the applicability gate
+# FAILS SAFE (an unclassified target keeps its full coverage obligation, never a
+# silently shrunk one). Declared in meta.verticals; validated by validate_catalog.py.
+VERTICALS = frozenset({"crypto", "bank", "fintech", "other"})
+
+
+def vertical_applies(cls: dict, vertical) -> bool:
+    """Vertical-conditional applicability (Seam C). Deterministic:
+    no `verticals` -> universal (True); known vertical -> membership test;
+    unknown/missing vertical -> True (fail-safe: never shrink the gate's
+    obligation on a missing classification)."""
+    allowed = cls.get("verticals")
+    if not allowed:
+        return True
+    v = str(vertical or "").strip().lower()
+    if v not in VERTICALS:
+        return True
+    return v in allowed
+
 # Table-scoped class_id extractor for coverage-matrix.md: only a backtick-wrapped
 # FIRST cell of a markdown table row, e.g. "| `API1-BOLA` | API'23 | ...". This
 # deliberately ignores class_id mentions in prose or the fenced-JSON example.

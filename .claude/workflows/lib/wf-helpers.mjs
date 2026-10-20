@@ -499,6 +499,53 @@ export const REPRO_SCHEMA = {
   },
 };
 
+// ---- SINGLE-SOURCE IMPACT RUNGS + VERTICAL OVERLAYS (Seam B) ----------------
+// The four High/Critical impact rungs and the per-vertical financial-harm
+// quantification are defined ONCE here and composed by every prompt builder
+// (EXPLOIT_DEPTH, the SEVERITY blocks, false-high calibration, coverage goals).
+// The MD source of truth is skills/coordination/reference/severity-calibration.md
+// rule 6; each vertical's quantification sentence mirrors its overlay file
+// skills/coordination/reference/verticals/<vertical>.md. The label comes from
+// tools/vertical_classify.py (OSINT org-fingerprint detection, mobile-triage
+// refresh; a scope-file declaration wins) and is ADVISORY: OVERLAYS SELECT
+// CONTENT, NEVER AUTHORITY - the vertical changes the quantification method
+// only; scope, RoE flags, prohibitions and the CIR channel govern identically
+// under every vertical. Every vertical's rung text independently carries the
+// NON-DESTRUCTIVE proof requirement, so no vertical is left without one.
+// Sandbox forbids import: workflow scripts embed byte-identical copies and
+// parity.test.mjs fails CI on drift.
+export function normalizeVertical(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return ['crypto', 'bank', 'fintech', 'other'].includes(s) ? s : 'other';
+}
+
+export const IMPACT_RUNGS = {
+  rungs: [
+    'shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password)',
+    'admin/SSA access',
+    'a database exfiltration proof',
+  ],
+  // Universal financial-harm definition (severity-calibration.md rule 6).
+  financial_universal: 'quantified financial harm — value-at-risk demonstrated by a NON-DESTRUCTIVE proof of authority appropriate to the asset (the proof demonstrates control; it never executes, moves, or broadcasts anything)',
+  // Per-vertical quantification overlays (verticals/<vertical>.md). fintech rides
+  // the bank funds-movement definition; other stays on the universal requirement.
+  financial_overlay: {
+    crypto: 'on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key (broadcast NOTHING, transfer NOTHING — the valid signature is the proof of control), plus funds-at-risk quantified from on-chain data (treasury/TVL/escrow balances, Arkham via ARKHAM_API_KEY)',
+    bank: 'on bank: demonstrated authority over funds movement on a reversible own-tenant path - a non-destructive create-then-delete proof on the client\'s own transfer/mandate flow, NEVER a live transfer to any third party - or quantified account exposure (number + aggregate balance of accounts the position reaches)',
+    fintech: 'on fintech: demonstrated authority over funds movement on a reversible own-tenant path (the bank overlay, verticals/bank.md) - a non-destructive create-then-delete proof on the client\'s own transfer/mandate/payment flow, NEVER a live transfer to any third party - or quantified account/payment exposure',
+    other: 'on non-financial targets: quantify the value-at-risk concretely (affected records, services, SLA exposure); never claim financial harm without a number',
+  },
+};
+
+export function financialHarmRung(vertical) {
+  const v = normalizeVertical(vertical);
+  return IMPACT_RUNGS.financial_universal + ' — ' + IMPACT_RUNGS.financial_overlay[v];
+}
+
+export function impactRungs(vertical) {
+  return [...IMPACT_RUNGS.rungs, financialHarmRung(vertical)].join(', or ');
+}
+
 export function checksPrompt(f, P = {}) {
   return `ROLE: AUTHORITATIVE FINDING VALIDATOR. cwd is repo root. You verify ONE finding to an evidentiary standard and produce its proof package. Mount ONLY: skills/coordination/reference/VALIDATION.md (the 5 canonical checks + package layout) and skills/coordination/reference/validator-role.md. Do NOT read attack-chain.md, session-memory.md, or other findings (stay independent).\n\n` +
     `FINDING: ${f.id}\nFINDING_DIR: ${f.dir}\nTYPE: ${f.type || 'unknown'}\nTARGET: ${P.TARGET || '(from finding)'}\nCVE(s): ${JSON.stringify(f.cve_ids || [])}\n` +
@@ -529,7 +576,7 @@ export function checksPrompt(f, P = {}) {
 export function refuterPrompt(f, i, P = {}) {
   return `ROLE: ADVERSARIAL VALIDATOR #${i} (blind). Your job is to REFUTE finding ${f.id}. You see ONLY its evidence package — NOT any validator's verdict, NOT attack-chain/session-memory, NOT other findings. Default to skepticism: if a claim is not independently supported, it is refuted.\n\n` +
     `Read ${f.dir}/description.md, ${f.dir}/poc.py, ${f.dir}/poc_output.txt, ${f.dir}/evidence/ (including evidence/validation/poc-rerun-output.txt, cve-verification.md, verification-script.py). For a CVE, independently sanity-check against the SAME frozen operands the validator used: ${(P.NVD_KEV || nvdKevText(P))[1]} Does the claimed CVSS vector actually yield the claimed score? does NVD agree? For the exploit: does the captured output actually PROVE the vulnerability, or is the "evidence" incidental/ambiguous/self-asserted? Could the output be produced on a non-vulnerable target? Are the factual claims present in raw scan output?\n\n` +
-    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: shell or box access by any path (reverse shell, webshell, an RCE session on the box, or a single-shot SSH login with a discovered key/password), admin/SSA access, a database exfiltration proof, or quantified financial harm (on crypto: a fund PoC — signing authority demonstrated by a signed message from the compromised key, broadcast NOTHING, plus funds-at-risk) — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
+    `COMMON FALSE-HIGH CALIBRATION — apply \`skills/coordination/reference/severity-calibration.md\`. REFUTE (impact not demonstrated/reachable as claimed) and name the unmet precondition as weakest_link if the finding is any of: CORS reflected-origin scored as token-theft WITHOUT \`Access-Control-Allow-Credentials: true\` + ambient-cookie-auth'd sensitive data; Azure \`AADSTS50126\` (failed auth) read as "MFA disabled" (Entra checks credentials BEFORE MFA — a failed login never reaches the MFA prompt); an ENABLER (spray-capability / Golden-SAML or cert template / writable ACL / SSRF reachability) scored as a DEMONSTRATED compromise it never actually performed; a scanner/vulners version-only "Critical" on a backported-distro or appliance-bundled package (version banner ≠ patch level); or a verified CVE scored at base WITHOUT confirming the vulnerable feature is enabled and reachable (e.g. IKEv1 CVE on an IKEv2-only gateway, an inbound-HRS CVE on an outbound-only client); or a High/Critical whose IMPACT RUNG was never demonstrated — the rungs are: ${impactRungs(P.VERTICAL)} — i.e. the chain stopped at detection/enablement or left a discovered key/wallet untried and Rules 6+8 of severity-calibration.md cap the finding at Medium + needs_live_confirmation UNLESS the blocker is genuinely transient/reversible state (deleted data, IMDSv2, a toggled-off feature), which is a demonstration boundary, NOT a cap.\n\n` +
     `Return VOTE_SCHEMA: refuted (true if you found a real reason to doubt the finding, the score, or the CVE), reason, and weakest_link (the single most doubtful element).`;
 }
 
