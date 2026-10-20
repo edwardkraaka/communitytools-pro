@@ -26,7 +26,7 @@
    -- string TO the remote, where it parses as fresh T-SQL.
    ```
 
-   This pattern bypasses local sysadmin restrictions completely — you DO NOT need sysadmin on your foothold SQL host. Useful when a forged-SAML/web session lands you as a low-priv DB login but the application config exposes a `bridge_*`-style linked server pointing at the real database tier (often a forest-internal SQL on a privileged DC).
+   This pattern bypasses local sysadmin restrictions completely — you do not need sysadmin on your foothold SQL host. Useful when a forged-SAML/web session lands you as a low-priv DB login but the application config exposes a `bridge_*`-style linked server pointing at the real database tier (often a forest-internal SQL on a privileged DC).
    - Use `;` between statements inside the bracketed string. Multi-statement batches work fine.
    - For data exfil rather than RCE: `EXEC ('SELECT name FROM sys.databases') AT [Srv]` returns rows directly through the linked server.
    - To check what you can do remotely: `EXEC ('SELECT IS_SRVROLEMEMBER(''sysadmin'')') AT [Srv]`.

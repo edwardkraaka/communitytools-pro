@@ -131,6 +131,7 @@ Read `system-exploitation-principles.md` first for the decision tree and sequenc
 | glibc 2.32+ tcache info leak when read window lands inside `tcache_perthread_struct` but populatable bins unreachable | `scenarios/glibc-tcache-info-leak-via-small-chunk-overlap.md` | Place a SMALL freed chunk (size 0x20) at heap_base+0x290+ so its user data (= safe-linked fd = heap_base>>12) falls inside the read window. Chain to libc leak via unsorted-bin overflow (8 frees same size > fastbin max). Chain to stack leak via libc.environ. |
 | glibc 2.32+ safe-linking bypass: have heap+libc+stack leaks, classic tcache poison fails because `tcache_put` overwrites fd; need arbitrary write to saved RIP/hook | `scenarios/house-of-botcake-glibc-237-safe-linking-bypass.md` | House of Botcake: backward-consolidate target chunk into unsorted, re-free via OOB-aliased pointer (e->key != tcache_key bypasses double-free check), unsorted alloc memcpy overwrites tcache_put's fd clobber with crafted PROTECT_PTR, two more tcache pops redirect to TARGET. |
 | Binary calls `qsort`+nontransitive comparator, has setrlimit RLIMIT_AS, and resort loop preserving table | `scenarios/qsort-r-multi-resort-table-shift.md` | OOB-walks via glibc 2.35 `_quicksort` insertion sort. 2-zero outliers → PIE leak. Multi-resort accumulates table shifts. |
+| qsort_r multi-resort continued experiment log (R5-R14) | `scenarios/qsort-r-multi-resort-table-shift-rounds.md` | Post-R4 rounds: confirmations, glibc source findings, live-target validation, final closure, write-primitive characterization. |
 
 ## MSSQL
 

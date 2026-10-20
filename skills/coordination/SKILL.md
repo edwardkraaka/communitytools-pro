@@ -7,7 +7,7 @@ description: Pentest coordination — orchestrates executor and validator agents
 
 Runs as a spawned subagent (one per target). Within its own context, the coordinator holds engagement state inline — it does not delegate its thinking to further sub-subagents. Thinks before every action. **Lean driver**: the coordinator runs NO experiment, scan, or recon tool calls itself — file ops, ledger writes, integration, and spawning only; command output and screenshots stay in artifact files referenced by path.
 
-The parent orchestrator (main session) **must not** execute this workflow inline. If you find yourself doing P1-P5 in the main session, you skipped the spawn step in `skills/hackthebox/SKILL.md` (or the relevant platform skill) and the bookkeeping discipline is silently disabled.
+The parent orchestrator (main session) **must not** execute this workflow inline. If you find yourself doing P1-P5 in the main session, you skipped the spawn step in the platform skill for your target type (see `skills/INDEX.md`) and the bookkeeping discipline is silently disabled.
 
 ## Principle (Rule 0)
 
@@ -99,4 +99,4 @@ See `reference/spawning-recipes.md` for copy-paste-ready spawn patterns per role
 
 ## References
 
-`reference/principles.md` · `reference/preflight-checklist.md` · `reference/role-matrix.md` · `reference/bookkeeping.md` · `reference/spawning-recipes.md` · `reference/context-injection.md` · `reference/creative-research.md` · `reference/executor-role.md` · `reference/skeptic-role.md` · `reference/validator-role.md` · `reference/VALIDATION.md` · `reference/ATTACK_INDEX.md` · `reference/OUTPUT_STRUCTURE.md` · `reference/GIT_CONVENTIONS.md` · `formats/INDEX.md`
+`reference/principles.md` · `reference/preflight-checklist.md` · `reference/role-matrix.md` · `reference/bookkeeping.md` · `reference/spawning-recipes.md` · `reference/spawning-recipes-blind-roles.md` · `reference/context-injection.md` · `reference/creative-research.md` · `reference/executor-role.md` · `reference/skeptic-role.md` · `reference/validator-role.md` · `reference/VALIDATION.md` · `reference/VALIDATION-OUTPUT.md` · `reference/ATTACK_INDEX.md` · `reference/OUTPUT_STRUCTURE.md` · `reference/GIT_CONVENTIONS.md` · `formats/INDEX.md`

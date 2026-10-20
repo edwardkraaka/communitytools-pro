@@ -83,7 +83,7 @@ After `.capitalize()`, the header line goes out as `Eval <script> 0 dummy: <valu
 
 ### 4. Read the planted cache value
 
-After the Lua runs, the cache entry at `sha256("/pwn")` contains `{"body":"HTB{...}","status_code":200}`. The CDN's default render path JSON-unmarshals this and writes `body` to the response. `GET /pwn` returns the FLAG.
+After the Lua runs, the cache entry at `sha256("/pwn")` contains `{"body":"FLAG{...}","status_code":200}`. The CDN's default render path JSON-unmarshals this and writes `body` to the response. `GET /pwn` returns the FLAG.
 
 ## Detection signals
 
@@ -110,4 +110,4 @@ After the Lua runs, the cache entry at `sha256("/pwn")` contains `{"body":"HTB{.
 - [protocol-exploitation-gopher.md](protocol-exploitation-gopher.md) covers the classic gopher/file/dict/jar Redis attacks for SSRF sinks that accept non-HTTP schemes. This one is the *HTTP-only* sibling: when the sink is locked to `http://` and the standard cross-protocol tricks fail.
 - [cache/poisoning-body-args.md](../../../../web-app-logic/reference/scenarios/cache/poisoning-body-args.md) is usually the upstream primitive — the cache poisoning step that lets you plant the XSS that triggers this SSRF.
 - [cache/poisoning-setnx-race.md](../../../../web-app-logic/reference/scenarios/cache/poisoning-setnx-race.md) is the typical glue when the CDN fills cache with `SetNX` — you need to beat the legitimate bot/admin to the cache key before this SSRF chain can fire.
-- Confirmed end-to-end against HTB SocratesPanel (Tornado 6.4.2 + Go CDN + Redis 7.0.15).
+- Confirmed end-to-end against the SocratesPanel lab challenge (Tornado 6.4.2 + Go CDN + Redis 7.0.15).

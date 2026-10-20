@@ -40,7 +40,7 @@ The coordinator passes `role:` in the spawn prompt. Behavior differs by variant.
 - Client-side → Playwright (own browser tab).
 - Server-side → curl / python.
 - Network → nmap.
-- Evidence → screenshots written straight to `OUTPUT_DIR` artifact/evidence dirs via Write — NEVER Read, pasted, or base64'd into any transcript (a single pasted screenshot can cost more context than an entire mission report). Reference by path.
+- Evidence → screenshots written straight to `OUTPUT_DIR` artifact/evidence dirs via Write — never Read, pasted, or base64'd into any transcript (a single pasted screenshot can cost more context than an entire mission report). Reference by path.
 
 ## Context hygiene
 

@@ -49,7 +49,7 @@ certutil -decode exploit.b64 C:\temp\exploit.exe
 
 The duck-sec compiled CVE-2023-28252 PoC (`exploit.exe <token_offset> <flag> <cmd>`) is the go-to single-shot LPE for Windows 10/11/Server 2022 pre-April 2023. Token offsets: `0x4b8` (1208) for Win11 22000, `0x40` for Win10 19041, etc. Three operational pitfalls that consistently waste time:
 
-1. **DO NOT run from `C:\Windows\Tasks\`** — even though `Tasks` is writable by all users, the directory's restrictive ACL on SYSTEM-written *output files* makes them unreadable by the original low-priv user. Use `C:\Users\Public\` or `%TEMP%` instead.
+1. **Do not run from `C:\Windows\Tasks\`** — even though `Tasks` is writable by all users, the directory's restrictive ACL on SYSTEM-written *output files* makes them unreadable by the original low-priv user. Use `C:\Users\Public\` or `%TEMP%` instead.
 
 2. **SYSTEM-written output requires explicit ACL grant** — when your batch script runs as SYSTEM and writes a file (e.g., `type root.txt > out.txt`), the file inherits SYSTEM's restrictive ACL. You'll get `Access to the path is denied` when the user tries to read it. Always include in the batch script:
 

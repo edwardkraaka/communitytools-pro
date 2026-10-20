@@ -4,7 +4,7 @@
 
 - A delivered artifact is a multi-MB binary blob (commonly 4 MB) that `binwalk`/`strings` shows is built with ESP-IDF: tags like `boot`, `esp_image`, `phy_init`, `nvs`, partition labels (`factory`, `ota_0`), and ESP-IDF version strings.
 - `file` reports `data`; the blob starts with byte `0xE9` (ESP image magic) at offset `0x1000`.
-- The flag is **generated at runtime** (no literal `flag{`/`HTB{` in the image) and is gated behind a hardware/anti-clone check — strings such as "cloned hardware", "did not generate correctly", or an explicit "try to emulate it" hint.
+- The flag is **generated at runtime** (no literal `flag{`/`FLAG{` in the image) and is gated behind a hardware/anti-clone check — strings such as "cloned hardware", "did not generate correctly", or an explicit "try to emulate it" hint.
 - Target arch is **Xtensa LX6** (windowed ABI), not ARM/MIPS — r2/capstone disassembly is unreliable here.
 
 ## Technique
@@ -50,7 +50,7 @@ xattr -dr com.apple.quarantine qemu/                              # macOS Gateke
 gtimeout 45 qemu/bin/qemu-system-xtensa -nographic -machine esp32 \
   -drive file=firmware.bin,if=mtd,format=raw \
   -serial file:uart.log -monitor none
-grep -aE 'flag|HTB\{|FLAG\{' uart.log        # flag usually within ~1-2 s guest time
+grep -aE 'flag|FLAG\{' uart.log        # flag usually within ~1-2 s guest time
 ```
 
 - QEMU's **default emulated eFuses** (incl. factory MAC) satisfy most anti-clone gates → no crafted eFuse needed. Try defaults first.

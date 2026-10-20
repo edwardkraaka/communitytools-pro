@@ -68,4 +68,5 @@ session-memory.md (Access & Credentials)  # Validated creds handed to the engage
 ## Reference
 
 - `reference/repository-recon.md` - Dorks, tool commands, secret patterns, credential-validation probes, workflow
+- `reference/repository-recon-output.md` - Findings output JSON schema, severity guide, references
 - `../threat-intel/reference/target-triage.md` - TI triage procedure run over this phase's stack fingerprint (outputs the TI Hypotheses handoff)

@@ -59,7 +59,7 @@ Pick the scenario family from the auth flow / token fingerprint, then read the m
 - **`jwt.decode` ≠ `jwt.verify`.** PyJWT's `decode` accepts `verify=False`; `verify` is the strict path. Code review for `decode(verify=False)` finds many vulnerabilities.
 - **Algorithm-key consistency** is enforced by modern libraries — you can't pass an RSA public key with `algorithms=['HS256']`. Older libraries didn't enforce this, enabling RS256→HS256 confusion.
 - **`kid` is application-controlled metadata** with no security guarantees. Treating it as a file path / SQL value / shell argument is always a bug.
-- **`jwk` / `jku` / `x5u` / `x5c` should NEVER be trusted from token headers** in production. Keys must come from a configured trusted source (JWKS endpoint with TLS pinning, hard-coded cert).
+- **`jwk` / `jku` / `x5u` / `x5c` should never be trusted from token headers** in production. Keys must come from a configured trusted source (JWKS endpoint with TLS pinning, hard-coded cert).
 - **Trailing dot vs no trailing dot** in JWT signature segment matters per-library. Test BOTH.
 - **OAuth `state` should be HMAC-bound to session** (not just random). Random-but-not-bound states are still vulnerable to replay.
 - **PKCE `plain` method = no PKCE.** Treat `code_challenge_method=plain` as PKCE-bypassable.

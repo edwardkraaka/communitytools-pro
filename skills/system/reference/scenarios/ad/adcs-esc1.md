@@ -44,7 +44,7 @@ If template has ENROLLEE_SUPPLIES_SUBJECT but only Server Auth EKU:
 - `certipy auth -pfx cert.pfx` → KDC_ERR_INCONSISTENT_KEY_PURPOSE
 - Schannel LDAPS → bind returns None, operations fail with "bind must be completed"
 
-**Practical PKINIT failures with Client Auth-only EKU**: in real environments (HTB Retro, AD CS hardened deployments) PKINIT against a Client-Auth-only cert frequently returns `KDC_ERR_PADATA_TYPE_NOSUPP` even though the EKU table says it should work. Don't burn time debugging the KDC — pivot to `certipy auth -pfx <file>.pfx -ldap-shell` (Schannel/LDAPS) which authenticates by UPN SAN alone. From the LDAP shell `change_password administrator <NewPass>` is a one-shot DA, then `nxc smb DC -u Administrator -p <NewPass>` for execution.
+**Practical PKINIT failures with Client Auth-only EKU**: in real environments (the Retro lab, AD CS hardened deployments) PKINIT against a Client-Auth-only cert frequently returns `KDC_ERR_PADATA_TYPE_NOSUPP` even though the EKU table says it should work. Don't burn time debugging the KDC — pivot to `certipy auth -pfx <file>.pfx -ldap-shell` (Schannel/LDAPS) which authenticates by UPN SAN alone. From the LDAP shell `change_password administrator <NewPass>` is a one-shot DA, then `nxc smb DC -u Administrator -p <NewPass>` for execution.
 
 Check EKU before investing in ESC1: `certipy find -vulnerable -stdout`. `msPKI-Certificate-Application-Policy` (v2 templates) overrides `pKIExtendedKeyUsage`. Also note `Minimum RSA Key Length` — templates often require 4096; pass `-key-size 4096` to `certipy req` or get `CERTSRV_E_KEY_LENGTH`.
 

@@ -18,7 +18,7 @@ Don't try to traverse hundreds of dispatchers manually or emulate the binary. In
 3. Identify the output construction as a function `output[i] = f(input[j])` per position.
 4. Use Z3 to solve the full system. Often the constraint set has a UNIQUE solution for most input bytes;
    the few "free" bytes are intentionally chosen by the author to make a meaningful flag.
-5. The output structure (e.g., `HTB{...}` prefix) provides additional constraints.
+5. The output structure (e.g., `FLAG{...}` prefix) provides additional constraints.
 6. The remaining free bytes typically encode an English phrase the SMS/input was meant to look like —
    guess by choosing a natural-language template for the input and verifying it satisfies the printable constraints.
 
@@ -87,9 +87,9 @@ s.add(b32[1]*b32[0x1b] + b32[0x11]*b32[0xb] - b32[3]*b32[5] == 0x38f7)
 s.add(b32[0x11] + b32[1] - b32[7] == 0x6a)
 # ...
 
-# Output prefix constraints (e.g., "http://HTB{")
+# Output prefix constraints (e.g., "http://FLAG{")
 def buf(i): return ...   # the i-th output position as f(b8)
-PREFIX = b"http://HTB{"
+PREFIX = b"http://FLAG{"
 for i, c in enumerate(PREFIX):
     s.add(buf(i) == c)
 ```
@@ -119,7 +119,7 @@ Apply the output formula to the full byte vector. The result is the flag/URL/sec
 
 - Z3 returns SAT for the full system.
 - The constrained-byte set is uniquely determined (a follow-up `s.check()` after blocking is UNSAT).
-- The output starts with the expected prefix (e.g., `HTB{` or `http://`).
+- The output starts with the expected prefix (e.g., `FLAG{` or `http://`).
 - The chain executes in your emulator (Unicorn) producing the same output for the same input.
 
 ## Common pitfalls
@@ -138,14 +138,14 @@ Apply the output formula to the full byte vector. The result is the flag/URL/sec
 - **Output positions you missed.** Triple-check the output formula by re-running every
   `strb wX, [x0, #OFFSET]` in the terminator and noting which register held what.
 
-## Real example: HTB WonderSMS (HTB ID 609)
+## Real example: lab challenge WonderSMS (challenge ID 609)
 
 - 259 dispatchers in `libaudio.so`; chain: `f315732804 → f1100030004 → check_extension`.
 - 4 polynomial hash equations + 5 byte-arithmetic equations in `check_extension`.
-- Output is a 40-byte URL `http://HTB{...}` whose content comes from XOR/offset of input bytes.
+- Output is a 40-byte URL `http://FLAG{...}` whose content comes from XOR/offset of input bytes.
 - Z3 found UNIQUE values for 14 of 30 input bytes; URL prefix forced 5 more; remaining 6 free
   bytes encoded the SMS template "your authentication token is: <OTP>".
-- Flag URL: `http://HTB{I_g3t_angr_3as1lY_aT_unicorn}` (reads "I get angry easily at unicorn").
+- Flag URL: `http://FLAG{I_g3t_angr_3as1lY_aT_unicorn}` (reads "I get angry easily at unicorn").
 - Key insight for the free bytes: segment 6 ("F X' A' c o r X'" with X' duplicated) UNIQUELY
   matches "unicorn" among 7-letter English words; segment 4 ("3 Z s 1 E+5 Y") UNIQUELY
   matches "easilY" among 6-letter Y-ending words with 's' at index 2 — these constraints alone

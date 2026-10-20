@@ -29,6 +29,7 @@ Test for injection vulnerabilities across all input vectors. Covers SQL, NoSQL, 
 ## Reference
 
 - `reference/sql-injection*.md` - SQL injection techniques
+- `reference/h2-jdbc-url-rce.md` - H2 JDBC URL → JavaScript trigger RCE (pre-auth, BI tools / test-connection endpoints)
 - `reference/nosql-injection*.md` - NoSQL injection techniques
 - `reference/os-command-injection*.md` - OS command injection
 - `reference/ssti*.md` - Server-side template injection

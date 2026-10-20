@@ -100,7 +100,7 @@ for obj in env.objects:
 - **Frida**: hook `UnityEngine.UI.Text::set_text` and `TMPro.TMP_Text::set_text` to capture every UI string set at runtime. On Windows, attach with `frida -p <pid>` after launch. On Android, `frida-il2cpp-bridge` (see the runtime dump above) also drives per-object inspection.
 - **dnSpy** (Windows): debug the dumped DummyDll mapped to running process for breakpoint-level inspection.
 - **MelonLoader / BepInEx**: code injection frameworks that let you hook Update() in C# directly.
-- **Memory dump**: process snapshot then `strings` + `grep HTB{` — finds runtime-built flags.
+- **Memory dump**: process snapshot then `strings` + `grep FLAG{` — finds runtime-built flags.
 
 ## When the flag is built at runtime by native code
 If the C# wraps `extern` functions that build the flag from internal state (linked lists, RNG-seeded XOR), static analysis alone is insufficient. Required:
@@ -179,7 +179,7 @@ World-X ordering of all letter-sprites can be **deliberately misleading**. The c
 **Resolution strategy**: enumerate thematic candidates by inserting active grandchildren at every plausible English-word-completion position, then validate against an offline oracle (see below) before submitting.
 
 ### Validation: writeup-decrypt oracle
-Many CTF writeups are AES-encrypted on creator blogs with the flag as password (CryptoJS `AES.encrypt`, OpenSSL EVP_BytesToKey, MD5-derived key+IV). Use as offline brute-force oracle to avoid HTB rate-limit / lockout:
+Many CTF writeups are AES-encrypted on creator blogs with the flag as password (CryptoJS `AES.encrypt`, OpenSSL EVP_BytesToKey, MD5-derived key+IV). Use as offline brute-force oracle to avoid platform rate-limit / lockout:
 
 ```python
 # /tmp/test_decrypt.py
@@ -210,8 +210,8 @@ def is_plaintext(b):
 
 A correct candidate decrypts to readable Markdown/HTML; wrong candidates produce random bytes. Batch-test 10-50 candidates per second locally.
 
-### Case study: StayInTheBoxCorp (HTB 579)
-- Naïve world-X sort of 31 inactive direct children + 5 active grandchildren of Canvas `f3`: `HTB{0v3rcom1ng_W34k_serMU0de_4nt1Cht34}` (wrong).
-- Semantic insertion of grandchildren `_`, `_`, `U`, `h`, `t` at English-completing positions: `HTB{0v3rcom1ng_W34k_UserM0de_4nt1Ch34t}` ("Overcoming Weak UserMode AntiCheat") — accepted.
-- Validated via writeup-oracle before HTB submission.
+### Case study: StayInTheBoxCorp (lab challenge 579)
+- Naïve world-X sort of 31 inactive direct children + 5 active grandchildren of Canvas `f3`: `FLAG{0v3rcom1ng_W34k_serMU0de_4nt1Cht34}` (wrong).
+- Semantic insertion of grandchildren `_`, `_`, `U`, `h`, `t` at English-completing positions: `FLAG{0v3rcom1ng_W34k_UserM0de_4nt1Ch34t}` ("Overcoming Weak UserMode AntiCheat") — accepted.
+- Validated via writeup-oracle before platform submission.
 - Intended solve path per writeup: MelonLoader + UnityExplorer IL2CPP to disable obstacle `DoQ` GameObject in-game and walk to the flag display.

