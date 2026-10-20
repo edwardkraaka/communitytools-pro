@@ -192,7 +192,7 @@ AD's SDProp task (every 60 minutes by default) overwrites the DACL on every memb
 AdminSDHolder-protected groups (Domain Admins, Enterprise Admins, Schema Admins, Account
 Operators, Backup Operators, Print Operators, Server Operators, etc.) and on adminCount=1
 users with the AdminSDHolder template DACL. Inherited ACE-based privesc paths to a protected
-account DO NOT survive an SDProp pass — they revert in <60 minutes.
+account do not survive an SDProp pass — they revert in <60 minutes.
 
 Implications:
 - Don't waste cycles on ACL paths that target protected accounts via INHERITANCE — write

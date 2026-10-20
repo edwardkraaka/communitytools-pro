@@ -6,7 +6,7 @@
 - An LFI / arbitrary-file-read primitive lets you read `/etc/bind/named.conf*` or `/etc/bind/rndc.key`.
 - You want to add/modify/delete records (typically a `mail.<zone>` A record) so an internal client (mail server, password-reset bot) connects to your IP instead.
 
-This pattern shows up on chat-server lateral pivots (e.g. HTB Snoopy: LFI → BIND TSIG → mail subdomain hijack → Mattermost password-reset interception).
+This pattern shows up on chat-server lateral pivots (e.g. the Snoopy lab: LFI → BIND TSIG → mail subdomain hijack → Mattermost password-reset interception).
 
 ## Files of interest
 

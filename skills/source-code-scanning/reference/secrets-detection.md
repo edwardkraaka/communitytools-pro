@@ -87,7 +87,7 @@ Source frequently shows a placeholder (`<OBFUSCATED>`, `***`, `getenv(...)`, `pr
 - **JVM:** `unzip` the jar; `javap -c -p` or CFR/procyon for full decompile.
 - **Native ELF/Mach-O/PE:** `strings -a`, check BOTH ASCII and wide (UTF-16) encodings.
 
-A recovered DB/service password also unlocks **direct protocol access** (MSSQL 1433, redis, SMB) that app-layer injection couldn't reach, and is worth spraying as **credential reuse** across other users/services. (Real case: HTB Context — `webappusr` SQL password was `<OBFUSCATED>` in `Database.cs` but present verbatim in `obj/Debug/WebApplication.dll`, enabling a direct 1433 connection.)
+A recovered DB/service password also unlocks **direct protocol access** (MSSQL 1433, redis, SMB) that app-layer injection couldn't reach, and is worth spraying as **credential reuse** across other users/services. (Real case: the Context lab challenge — `webappusr` SQL password was `<OBFUSCATED>` in `Database.cs` but present verbatim in `obj/Debug/WebApplication.dll`, enabling a direct 1433 connection.)
 
 ## Remediation Steps
 

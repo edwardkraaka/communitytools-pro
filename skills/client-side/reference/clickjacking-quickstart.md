@@ -1,6 +1,6 @@
 # Clickjacking Quickstart
 
-UI redressing — trick authenticated user into clicking hidden iframe content via overlaid decoy. CSRF tokens DO NOT prevent it.
+UI redressing — trick authenticated user into clicking hidden iframe content via overlaid decoy. CSRF tokens do not prevent it.
 
 ## Vulnerability check
 

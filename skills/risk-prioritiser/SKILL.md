@@ -23,7 +23,7 @@ Cron daily after `attack-path-stitcher` (task #6) completes. Also event-fires wh
    - `entry_exposure` = 1.0 if entry node is `external: true`, else 0.5.
    - **Final score** = `feasibility × technical_severity × business_impact × entry_exposure`.
 3. **Score each single-asset validated finding** that does not sit on a confirmed path. Same formula; `feasibility = 1.0`, `business_impact` = asset's own tier weight, hop count = 1.
-4. **Score each `inferred_paths` entry**, but cap their bucket placement at `theoretical` regardless of numeric score. Inferred paths NEVER reach `immediate` / `short_term` / `medium_term` — RFP §3.3 requires "confirmed", and inferred paths are evidence-deficient by construction.
+4. **Score each `inferred_paths` entry**, but cap their bucket placement at `theoretical` regardless of numeric score. Inferred paths never reach `immediate` / `short_term` / `medium_term` — RFP §3.3 requires "confirmed", and inferred paths are evidence-deficient by construction.
 5. **Sort descending.** Stable tie-break order: max CVSS desc → hop count asc → finding age desc (newer first).
 6. **Bucket into roadmap tiers.**
    - `immediate` (0-7 days): confirmed AND score ≥ 0.6

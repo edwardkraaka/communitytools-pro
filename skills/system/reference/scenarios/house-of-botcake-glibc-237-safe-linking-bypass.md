@@ -128,4 +128,4 @@ If the bug forces `e->key == tcache_key` (e.g., backward-consolidation preserves
 
 - shellphish how2heap, `house_of_botcake.c`: https://github.com/shellphish/how2heap/blob/master/glibc_2.35/house_of_botcake.c
 - glibc 2.37 source: `malloc/malloc.c` `_int_free`, `tcache_put`, `tcache_get_n`.
-- Confirmed working on HTB "Magic Scrolls" (challenge 634, glibc 2.37-7, Pwn Hard).
+- Confirmed working on the "Magic Scrolls" lab challenge (challenge 634, glibc 2.37-7, Pwn Hard).
