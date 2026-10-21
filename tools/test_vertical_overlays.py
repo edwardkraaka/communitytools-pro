@@ -10,14 +10,15 @@ behavior, never on source prose. Identity of the byte-copies embedded in the
 three workflow scripts is governed separately by parity.test.mjs; structural
 wiring (which seam threads which value) is governed by
 .claude/workflows/lib/wiring.test.mjs. Prose in severity-calibration.md /
-VALIDATION.md / validator-role.md / principles.md / SKILL.md / verticals/*.md
-is governed by human review, not CI substring assertions.
+VALIDATION.md / validator-role.md / principles.md / SKILL.md / the per-vertical
+overlay files remains governed by human review, not CI substring matching.
 
 Stdlib only (shells out to node, which CI already installs). Run:
   python3 tools/test_vertical_overlays.py
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -157,6 +158,41 @@ def main():
                 prompts[v1] != prompts[v2],
                 f"refuterPrompt is identical for VERTICAL={v1!r} and VERTICAL={v2!r} (vertical not threaded)",
             )
+
+    # (j) md↔JS mirror agreement (bank): the bank overlay's quantification
+    # sentence is the byte-for-byte mirror the single-source JS constant
+    # composes into executor AND validator prompts.
+    bank_mirror = "demonstrated authority over funds movement on a reversible own-tenant path"
+    check(
+        bank_mirror in rungs["bank"]["financial"] and bank_mirror in rungs["fintech"]["financial"],
+        "wf-helpers.mjs bank/fintech rung drifted from the bank overlay mirror sentence",
+    )
+
+    # (k) verticals DSL consistency: every vertical in the canonical vocabulary
+    # dispatches to an existing overlay file (fintech dispatches to bank.md),
+    # and the vocabulary is single-sourced across classifier + catalog + this
+    # test — vertical_na enumeration is unaffected (no class gains a
+    # verticals[] constraint in this change; the vocabulary itself is closed).
+    vocab = {"crypto", "bank", "fintech", "other"}
+    overlay_files = {
+        "crypto": "crypto.md", "bank": "bank.md",
+        "fintech": "bank.md", "other": "other.md",
+    }
+    for v, fname in overlay_files.items():
+        path = os.path.join(REPO, "skills", "coordination", "reference", "verticals", fname)
+        check(os.path.isfile(path), f"vertical {v!r} has no overlay file at {fname!r}")
+    with open(os.path.join(REPO, "tools", "vertical_classify.py"), encoding="utf-8") as fh:
+        classify_src = fh.read()
+    m = re.search(r"^VERTICALS\s*=\s*\(([^)]*)\)", classify_src, re.MULTILINE)
+    check(
+        m is not None and {t.strip().strip('"\'') for t in m.group(1).split(",") if t.strip()} == vocab,
+        "tools/vertical_classify.py VERTICALS no longer equals the canonical vocabulary",
+    )
+    catalog = json.load(open(os.path.join(REPO, "skills", "coordination", "reference", "coverage-matrix.json"), encoding="utf-8"))
+    check(
+        set(catalog.get("meta", {}).get("verticals", [])) == vocab,
+        "coverage-matrix.json meta.verticals no longer equals the canonical vocabulary",
+    )
 
     print(f"vertical-overlays: {checked} checked, {len(failures)} failed")
     if failures:
