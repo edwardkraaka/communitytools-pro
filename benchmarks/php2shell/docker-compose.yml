@@ -2,6 +2,11 @@
 # Adapted from php2shell-poc (github.com/ikow/php2shell-poc, MIT) at commit
 # 31519e6d8a84dee1df1262961ed1bebb65accadd. LOOPBACK ONLY: every published
 # port binds 127.0.0.1 — nothing here is reachable off-box.
+#
+# Matrix: EOL branches (5.6/7.4/8.0/8.1) mirror the upstream lab's FPM-only
+# shape — one vulnerable instance each (no later minor exists to patch
+# against). Supported branches (8.2/8.3/8.4/8.5) get the vulnerable+patched
+# FPM pair; 8.2 additionally carries the zero-dependency mod_php surface.
 services:
   php-fpm-vuln:
     # 8.2.34 = last vulnerable 8.2 (fix landed in 8.2.35). FPM + nginx front.
@@ -26,8 +31,7 @@ services:
       - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
     # talk to php-fpm-vuln over the labnet; publish loopback-only
     command: >
-      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln:9000/' /etc/nginx/conf.d/default.conf &&
-             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+      sh -c "ln -s /var/run /run || true; nginx -g 'daemon off;'"
     depends_on: [php-fpm-vuln]
     ports:
       - "127.0.0.1:18056:80"
@@ -70,6 +74,284 @@ services:
       - ./app/index.php:/var/www/html/index.php:ro
     ports:
       - "127.0.0.1:18058:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  # --- EOL branches: FPM-only, single vulnerable instance (mirrors upstream) ---
+
+  php-fpm-vuln-56:
+    # 5.6.40 = final EOL release of the 5.6 branch; permanently vulnerable.
+    image: php:5.6.40-fpm
+    container_name: php2shell-fpm-vuln-56
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-56:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-56
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-56:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-56]
+    ports:
+      - "127.0.0.1:18059:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-vuln-74:
+    # 7.4.33 = final EOL release of the 7.4 branch; permanently vulnerable.
+    image: php:7.4.33-fpm
+    container_name: php2shell-fpm-vuln-74
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-74:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-74
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-74:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-74]
+    ports:
+      - "127.0.0.1:18060:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-vuln-80:
+    # 8.0.30 = final EOL release of the 8.0 branch; permanently vulnerable.
+    image: php:8.0.30-fpm
+    container_name: php2shell-fpm-vuln-80
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-80:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-80
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-80:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-80]
+    ports:
+      - "127.0.0.1:18061:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-vuln-81:
+    # 8.1.31 = final EOL release of the 8.1 branch; permanently vulnerable.
+    image: php:8.1.31-fpm
+    container_name: php2shell-fpm-vuln-81
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-81:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-81
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-81:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-81]
+    ports:
+      - "127.0.0.1:18062:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  # --- Supported branches: vulnerable+patched FPM pair mirroring 8.2 ---
+
+  php-fpm-vuln-83:
+    image: php:8.3.17-fpm
+    container_name: php2shell-fpm-vuln-83
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-83:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-83
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-83:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-83]
+    ports:
+      - "127.0.0.1:18063:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-patched-83:
+    image: php:8.3.18-fpm
+    container_name: php2shell-fpm-patched-83
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-patched-83:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-patched-83
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-patched-83:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-patched-83]
+    ports:
+      - "127.0.0.1:18064:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-vuln-84:
+    image: php:8.4.4-fpm
+    container_name: php2shell-fpm-vuln-84
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-84:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-84
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-84:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-84]
+    ports:
+      - "127.0.0.1:18065:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-patched-84:
+    image: php:8.4.5-fpm
+    container_name: php2shell-fpm-patched-84
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-patched-84:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-patched-84
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-patched-84:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-patched-84]
+    ports:
+      - "127.0.0.1:18066:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-vuln-85:
+    image: php:8.5.0-fpm
+    container_name: php2shell-fpm-vuln-85
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-vuln-85:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-vuln-85
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-vuln-85:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-vuln-85]
+    ports:
+      - "127.0.0.1:18067:80"
+    networks: [labnet]
+    restart: unless-stopped
+
+  php-fpm-patched-85:
+    image: php:8.5.1-fpm
+    container_name: php2shell-fpm-patched-85
+    working_dir: /var/www/html
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+    command: >
+      sh -c "echo 'pm.max_children = 1' >> /usr/local/etc/php-fpm.d/zz-lab.conf &&
+             php-fpm -F"
+    restart: unless-stopped
+    networks: [labnet]
+
+  nginx-fpm-patched-85:
+    image: nginx:1.27-alpine
+    container_name: php2shell-nginx-patched-85
+    volumes:
+      - ./app/index.php:/var/www/html/index.php:ro
+      - ./nginx/fpm.conf:/etc/nginx/conf.d/default.conf:ro
+    command: >
+      sh -c "sed -i 's/php-fpm-vuln:9000/php-fpm-patched-85:9000/' /etc/nginx/conf.d/default.conf &&
+             ln -s /var/run /run || true; nginx -g 'daemon off;'"
+    depends_on: [php-fpm-patched-85]
+    ports:
+      - "127.0.0.1:18068:80"
     networks: [labnet]
     restart: unless-stopped
 
