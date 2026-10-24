@@ -221,7 +221,7 @@ services:
     restart: unless-stopped
 
   php-fpm-patched-83:
-    image: php:8.3.18-fpm
+    image: php:8.3.19-fpm
     container_name: php2shell-fpm-patched-83
     working_dir: /var/www/html
     volumes:

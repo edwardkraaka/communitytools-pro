@@ -25,7 +25,7 @@ reachable off-box.
 | `php-fpm-vuln-80` | php:8.0.30-fpm + nginx | 127.0.0.1:18061 | vulnerable FPM, EOL branch (final 8.0 release) |
 | `php-fpm-vuln-81` | php:8.1.31-fpm + nginx | 127.0.0.1:18062 | vulnerable FPM, EOL branch (final 8.1 release) |
 | `php-fpm-vuln-83` | php:8.3.17-fpm + nginx | 127.0.0.1:18063 | vulnerable FPM, supported branch |
-| `php-fpm-patched-83` | php:8.3.18-fpm + nginx | 127.0.0.1:18064 | patched control, supported branch |
+| `php-fpm-patched-83` | php:8.3.19-fpm + nginx | 127.0.0.1:18064 | patched control, supported branch |
 | `php-fpm-vuln-84` | php:8.4.4-fpm + nginx | 127.0.0.1:18065 | vulnerable FPM, supported branch |
 | `php-fpm-patched-84` | php:8.4.5-fpm + nginx | 127.0.0.1:18066 | patched control, supported branch |
 | `php-fpm-vuln-85` | php:8.5.0-fpm + nginx | 127.0.0.1:18067 | vulnerable FPM, supported branch |
