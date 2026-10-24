@@ -64,6 +64,12 @@ Read `server-side-principles.md` first for the decision tree and sequencing prin
 | `node-serialize`/`funcster`/`serialize-to-js` in source, `_$$ND_FUNC$$_` smuggling | `scenarios/deserialization/nodejs-deserialization.md` | IIFE eval RCE via `unserialize()` on cookies/body |
 | Next.js / React Server Components with React 19.0.0/19.1.x/19.2.0 (incl Next.js 15.0.x) | `scenarios/deserialization/react-server-components-flight.md` | CVE-2025-55182 — Flight multipart body + `next-action` header → pre-auth RCE |
 
+## PHP Runtime RCE
+
+| Trigger / fingerprint | Scenario file | One-line job |
+|---|---|---|
+| Techstack fingers PHP (X-Powered-By: PHP, PHPSESSID, .php paths, Laravel/WordPress/Joomla/Drupal/Magento) | `scenarios/php2shell/php2shell-session-upload-progress-rce.md` | CVE-2026-109618/109619 — tier 1-3 primitive probes via `tools/php2shell_check.py`; chain A-E applicability by SAPI; tier-4 OOM refused on client targets |
+
 ## Host Header
 
 | Trigger / fingerprint | Scenario file | One-line job |

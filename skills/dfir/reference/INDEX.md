@@ -41,6 +41,7 @@ Top-level docs:
 - [sysmon-rules.md](scenarios/log-analysis/sysmon-rules.md) — EIDs 1/3/7/10/11/22, LOLBIN hunting
 - [linux-auth-logs.md](scenarios/log-analysis/linux-auth-logs.md) — sshd, sudo, auditd
 - [webserver-logs.md](scenarios/log-analysis/webserver-logs.md) — Apache/nginx, webshell + SQLi patterns
+- [php2shell-detection.md](scenarios/log-analysis/php2shell-detection.md) — CVE-2026-109618/109619: Suricata/Sigma/ModSecurity/OpenResty rule map, mitigation ladder, IR hunting queries (PHP session.upload_progress + Zend OOM RCE)
 - [splunk-spl-queries.md](scenarios/log-analysis/splunk-spl-queries.md) — common SPL detections
 
 ### AD attack detection — `scenarios/ad-attack-detection/`
