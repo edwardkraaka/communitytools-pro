@@ -80,8 +80,11 @@ acquisition is a **failed acquisition**, not a pass).
 
 ## Integrity
 
-Every acquisition records `sha256` (`apk.sha256`) and version (`apk.version` via `aapt dump
-badging`) — the evidence anchor the engagement and any re-test key off. On the gplaydl lane the
+Every acquisition records `sha256` (`apk.sha256`), version (`apk.version` via `aapt dump
+badging`), and the richer `artifact.json` evidence record (schema `artifact/v1`:
+content-based `format` via `tools/artifact_format.py`, acquisition `source`
+rung, `acquired_at`, tool versions, and `parent_sha256s` when splits were merged)
+— the evidence anchor the engagement and any re-test key off. On the gplaydl lane the
 download itself is additionally self-verifying: each artifact is hashed against Play's declared
 digest at download time, so a corrupted or tampered-in-transit file fails the download rather
 than silently landing in `raw/`.
@@ -93,7 +96,8 @@ ipatool auth login -e "$APPLE_ID" -p "$APPLE_PASSWORD" --non-interactive
 ipatool download -b com.example.app -o app.ipa
 ```
 
-Batch bundle-id lists via the `ipatool-mass` wrapper. **Caveat:** App Store IPA binaries are
+Batch bundle-id lists via the `ipatool-mass` wrapper (`scripts/ipatool-mass.sh <bundle-ids.txt> [out-root] [parallelism]` —
+resumable by `ipa.sha256` anchor, per-app logs, emits `ipa-index.json`; same shape as `apk-farm.sh`). **Caveat:** App Store IPA binaries are
 **FairPlay-encrypted** — you get the plist, entitlements, and metadata statically, but the Mach-O
 needs decrypting on a **jailbroken device** (`bagbak` / `frida-ios-dump`) before code analysis.
 That decrypt step is intentionally manual; see [`handoff.md`](handoff.md). Android is far friendlier
