@@ -3,11 +3,9 @@
 Self-contained benchmark suite pinning **Damn Vulnerable Android Bank** (`dvba.apk`,
 sha256 `76c308fac6a655a3534771777780e004feb1d91be032857768c891b2baf40ba6`, 3,784,858
 bytes — also pinned by `scripts/content-guard-binaries.json`). The artifact is the
-ground truth; the suite exercises the binary tooling lane against it:
-
-- `tools/artifact_format.py` content routing (magic bytes + zip member structure —
-  the `apk` verdict must survive a rename to an extensionless file)
-- the `artifact/v1` evidence-record contract emitted by `scripts/apk-pipeline.sh`
+ground truth; the suite exercises `tools/artifact_format.py` content routing
+against it (magic bytes + zip member structure — the `apk` verdict must survive
+a rename to an extensionless file).
 
 Discovered automatically by `benchmarks/run_benchmarks.py` (suite dir +
 `test_content_routing.json`, matching its `test_*.json` glob). All three cases run
