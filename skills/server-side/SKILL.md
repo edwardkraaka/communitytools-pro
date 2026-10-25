@@ -17,6 +17,7 @@ Test for server-side vulnerabilities that allow unauthorized access, RCE, or dat
 | **File Upload** | Extension bypass, content-type manipulation, polyglot files |
 | **Deserialization** | Java, PHP, Python, .NET gadget chains |
 | **Host Header** | Password reset poisoning, cache poisoning, routing-based SSRF |
+| **PHP Runtime RCE (php2shell)** | CVE-2026-109618/109619 — `session.upload_progress` filename injection + Zend OOM stale-state, pre-auth RCE chains A-E, tiered non-destructive verification (`tools/php2shell_check.py`) |
 | **CUPS / cups-browsed** | CVE-2024-47076/47175/47176/47177 — UDP browse → IPP injection → PPD injection → foomatic-rip RCE (see `skills/infrastructure/reference/scenarios/network-recon/cups-browsed-rce.md`) |
 
 ## Workflow
@@ -35,4 +36,5 @@ Test for server-side vulnerabilities that allow unauthorized access, RCE, or dat
 - `reference/file-upload*.md` - File upload exploitation
 - `reference/insecure-deserialization*.md` - Deserialization attacks
 - `reference/http-host-header*.md` - Host header injection
+- `reference/scenarios/php2shell/php2shell-session-upload-progress-rce.md` - PHP session.upload_progress + Zend OOM pre-auth RCE (CVE-2026-109618/109619): chain preconditions by SAPI, tiered verification ladder, tier-4 OOM gating
 - `skills/infrastructure/reference/scenarios/network-recon/cups-browsed-rce.md` - CUPS RCE chain (CVE-2024-47076/175/176/177); ipptool false positives vs libcups runtime parser; ippserver Python lib version-1.1 hardcode bug
