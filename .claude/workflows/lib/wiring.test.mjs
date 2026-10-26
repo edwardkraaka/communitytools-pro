@@ -455,5 +455,19 @@ ok(/python3 tools\/test_mobile_surface_build\.py/.test(ciYml), 'CI runs the mobi
 ok(/python3 tools\/test_mobile_device_check\.py/.test(ciYml), 'CI runs the device-check test');
 ok(/python3 tools\/test_mobile_manifest_facts\.py/.test(ciYml), 'CI runs the manifest-facts test');
 
+// ship-1 binary tooling lane: content-based format routing at the intake seam +
+// the artifact/v1 evidence record emitted by the acquisition pipelines.
+ok(/tools\/artifact_format\.py <stored>/.test(pe), 'input-intake runs the content sniffer on every STORED input (format keyed off magic bytes, not filename)');
+ok(/format: \{ type: \['string', 'null'\], description: 'content-based format from tools\/artifact_format\.py/.test(pe), 'INTAKE_SCHEMA input_manifest rows carry a content-based format field');
+ok(/artifact_format: \{ type: \['string', 'null'\]/.test(pe), 'ACQUIRE_SCHEMA carries artifact_format (content-routed, copied verbatim from the sniffer)');
+const apkPipe = readFileSync(join(wfDir, '..', '..', 'scripts', 'apk-pipeline.sh'), 'utf8');
+const ipaPipe = readFileSync(join(wfDir, '..', '..', 'scripts', 'ipa-pipeline.sh'), 'utf8');
+const ipaMass = readFileSync(join(wfDir, '..', '..', 'scripts', 'ipatool-mass.sh'), 'utf8');
+ok(/"schema": "artifact\/v1"/.test(apkPipe) && /artifact\.json/.test(apkPipe), 'apk-pipeline emits the artifact/v1 evidence record');
+ok(/"schema": "artifact\/v1"/.test(ipaPipe) && /artifact\.json/.test(ipaPipe), 'ipa-pipeline emits the artifact/v1 evidence record');
+ok(/parent_sha256s/.test(apkPipe) && /MERGED_FROM_JSON/.test(apkPipe), 'apk-pipeline links merged split parents into parent_sha256s (hash chain for XAPK/split merges)');
+ok(/ACQ_LADDER_SOURCE/.test(apkPipe), 'apk-pipeline records the acquisition rung actually used (gplaydl | apkeep:*)');
+ok(/ipa\.sha256/.test(ipaMass) && /ipa-index\.json/.test(ipaMass), 'ipatool-mass is resumable by the ipa.sha256 anchor and emits the index (acquisition.md contract)');
+
 console.log(`\nwiring: ${pass} passed, ${fail} failed`);
 if (fail) { console.log('\n' + fails.join('\n')); process.exit(1); }

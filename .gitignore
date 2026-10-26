@@ -86,6 +86,7 @@ benchmarks/bountybench/results/
 !.claude-plugin/marketplace.json
 !plugins/**/.claude-plugin/plugin.json
 !mcp/**/*.json
+!benchmarks/dvba_android/test_*.json
 # Skill compliance catalogs are source-of-truth data, not engagement output — keep them tracked.
 # Both forms: reference/catalog/ and a catalog/ nested deeper (e.g. reference/posture/catalog/).
 # The adjacency-only pattern silently excluded the latter, which is how a catalogue can validate

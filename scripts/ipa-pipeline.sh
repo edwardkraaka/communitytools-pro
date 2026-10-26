@@ -25,6 +25,37 @@ echo "[*] Downloading IPA for ${BID} via ipatool..."
 ipatool download -b "$BID" -o "$OUT/app.ipa" --non-interactive
 shasum -a 256 "$OUT/app.ipa" 2>/dev/null | tee "$OUT/ipa.sha256" || sha256sum "$OUT/app.ipa" | tee "$OUT/ipa.sha256"
 
+# --- Evidence record (artifact.json) ------------------------------------------
+# Same artifact/v1 provenance contract as apk-pipeline.sh: identity + content-based
+# format + acquisition source + timestamp + tool versions. The flat ipa.sha256
+# anchor stays authoritative for existing consumers; this is the additive record.
+IPA_SHA="$(cut -d' ' -f1 "$OUT/ipa.sha256")"
+IPA_FMT="unknown"
+if command -v python3 >/dev/null 2>&1; then
+  _af="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../tools/artifact_format.py"
+  [[ -f "$_af" ]] && IPA_FMT="$(python3 "$_af" "$OUT/app.ipa" 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("format","unknown"))' 2>/dev/null)"
+fi
+[[ -n "$IPA_FMT" ]] || IPA_FMT="unknown"
+ACQ_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+IPA_VER="$(unzip -p "$OUT/app.ipa" "Payload/*.app/Info.plist" 2>/dev/null | plutil -extract CFBundleShortVersionString raw - 2>/dev/null || true)"
+IPATOOL_VER="$(ipatool version 2>/dev/null | head -1 || true)"
+python3 - "$OUT/artifact.json" "$BID" "$IPA_SHA" "$IPA_VER" "$IPA_FMT" "ipatool" "$ACQ_AT" "$IPATOOL_VER" <<'PY'
+import json, sys
+out, bid, sha, ver, fmt, source, acq_at, ipatool_ver = sys.argv[1:9]
+json.dump({
+  "schema": "artifact/v1",
+  "bundle_id": bid,
+  "sha256": sha,
+  "version": ver or None,
+  "format": fmt,
+  "source": source,
+  "acquired_at": acq_at,
+  "tool_versions": {"ipatool": ipatool_ver or None},
+  "parent_sha256s": [],
+}, open(out, "w"), indent=2)
+PY
+echo "[+] Evidence: $OUT/artifact.json"
+
 echo "[*] Unpacking + static surface..."
 unzip -q -o "$OUT/app.ipa" -d "$OUT/unzipped"
 APPDIR="$(find "$OUT/unzipped/Payload" -maxdepth 1 -name '*.app' | head -1)"

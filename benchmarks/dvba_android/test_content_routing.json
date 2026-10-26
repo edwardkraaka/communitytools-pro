@@ -1,0 +1,20 @@
+[
+  {
+    "name": "dvba.apk routes to apk by content",
+    "prompt": "From the repo root, run `python3 tools/artifact_format.py benchmarks/dvba_android/dvba.apk` and report only the JSON object's `format` value.",
+    "expected": "apk",
+    "evaluation_type": "contains"
+  },
+  {
+    "name": "apk verdict survives an extensionless rename",
+    "prompt": "From the repo root, copy benchmarks/dvba_android/dvba.apk to a temporary file with no extension, run `python3 tools/artifact_format.py <that temp path>`, and report only the JSON object's `format` value.",
+    "expected": "apk",
+    "evaluation_type": "contains"
+  },
+  {
+    "name": "dvba.apk routes via the AndroidManifest.xml member, not a generic zip",
+    "prompt": "From the repo root, run `python3 tools/artifact_format.py benchmarks/dvba_android/dvba.apk` and report only the JSON object's `detail` value.",
+    "expected": "AndroidManifest.xml",
+    "evaluation_type": "contains"
+  }
+]

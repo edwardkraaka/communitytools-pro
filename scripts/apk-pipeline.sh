@@ -97,14 +97,17 @@ mirror_fetch() {
   return 1
 }
 if gplaydl_available; then
+  ACQ_LADDER_SOURCE=gplaydl
   gplaydl_fetch || true
   if ! raw_has_artifact && [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
     echo "[!] gplaydl returned nothing — retrying authenticated Play via apkeep+AAS (legacy)..." >&2
+    ACQ_LADDER_SOURCE="apkeep:google-play-aas"
     gplay_fetch || true
   fi
   if ! raw_has_artifact; then
     if [[ "${APK_SOURCE_FALLBACK:-0}" == "1" ]]; then
       echo "[!] Authenticated Play returned nothing — falling back to a mirror (may be an OLDER build)." >&2
+      ACQ_LADDER_SOURCE="apkeep:${APKEEP_SOURCE:-apk-pure}"
       mirror_fetch || true
     else
       echo "[!] Authenticated Play returned nothing. The linked account may not have acquired the app," >&2
@@ -114,10 +117,12 @@ if gplaydl_available; then
     fi
   fi
 elif [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
+  ACQ_LADDER_SOURCE="apkeep:google-play-aas"
   gplay_fetch || true
   if ! raw_has_artifact; then
     if [[ "${APK_SOURCE_FALLBACK:-0}" == "1" ]]; then
       echo "[!] Google Play returned nothing — falling back to a mirror (may be an OLDER build)." >&2
+      ACQ_LADDER_SOURCE="apkeep:${APKEEP_SOURCE:-apk-pure}"
       mirror_fetch || true
     else
       echo "[!] Google Play returned nothing. The account may not have acquired the app, or it is" >&2
@@ -126,6 +131,7 @@ elif [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then
     fi
   fi
 else
+  ACQ_LADDER_SOURCE="apkeep:${APKEEP_SOURCE:-apk-pure}"
   mirror_fetch
 fi
 
@@ -140,6 +146,7 @@ abs() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; es
 if (( ${#bundles[@]} > 0 )); then
   echo "[*] Split bundle detected (${bundles[0]##*/}) — merging to universal APK with APKEditor..."
   if [[ -f "$APKEDITOR_JAR" ]]; then
+    MERGED_FROM_JSON="$(sha256sum "${bundles[@]}" 2>/dev/null | python3 -c 'import sys,json;print(json.dumps([l.split()[0] for l in sys.stdin if l.strip()]))')"
     java -jar "$APKEDITOR_JAR" m -i "${bundles[0]}" -o "$OUT/base.apk" -f >/dev/null
     APK="$OUT/base.apk"
   else
@@ -147,6 +154,7 @@ if (( ${#bundles[@]} > 0 )); then
   fi
 elif (( ${#apks[@]} > 1 )); then
   echo "[*] Multiple split APKs — merging directory to universal APK with APKEditor..."
+  MERGED_FROM_JSON="$(sha256sum "${apks[@]}" 2>/dev/null | python3 -c 'import sys,json;print(json.dumps([l.split()[0] for l in sys.stdin if l.strip()]))')"
   java -jar "$APKEDITOR_JAR" m -i "$OUT/raw" -o "$OUT/base.apk" -f >/dev/null
   APK="$OUT/base.apk"
 elif (( ${#apks[@]} == 1 )); then
@@ -158,6 +166,70 @@ APK="$(abs "$APK")"
 echo "[+] Universal APK: $APK"
 sha256sum "$APK" | tee "$OUT/apk.sha256"
 aapt dump badging "$APK" 2>/dev/null | grep -oE "versionName='[^']*'" | head -1 > "$OUT/apk.version" || true
+
+# --- Evidence record (artifact.json) ------------------------------------------
+# One machine-readable provenance record per pipeline output: identity (sha256),
+# content-based format, acquisition source, timestamp, tool versions, and the
+# parent hashes when split APKs were merged into the universal APK. Consumers
+# keep reading the flat apk.sha256 / apk.version anchors (unchanged); artifact.json
+# is the richer additive record for the evidence chain.
+acq_source() {
+  # Source actually used by the ladder above, in its preference order. The
+  # ladder sets ACQ_LADDER_SOURCE at each rung; fall back to inferring from the
+  # env the same way the ladder branches.
+  case "${ACQ_LADDER_SOURCE:-}" in
+    gplaydl|apkeep:google-play-aas|apkeep:*) printf '%s' "$ACQ_LADDER_SOURCE";;
+    *) if [[ -n "${GOOGLE_PLAY_EMAIL:-}" && -n "${GOOGLE_PLAY_AAS_TOKEN:-}" ]]; then printf 'apkeep:google-play-aas';
+       elif gplaydl_available; then printf 'gplaydl';
+       else printf 'apkeep:%s' "${APKEEP_SOURCE:-apk-pure}"; fi;;
+  esac
+}
+APK_SHA="$(cut -d' ' -f1 "$OUT/apk.sha256")"
+APK_VER="$(sed "s/versionName='\(.*\)'/\1/" "$OUT/apk.version" 2>/dev/null | tr -d "'")"
+# content-based format via the repo's dispatcher (magic bytes, not the filename);
+# "unknown" (not a hard failure) when python3 or the tool is unavailable.
+APK_FMT="unknown"
+if command -v python3 >/dev/null 2>&1; then
+  _af="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../tools/artifact_format.py"
+  [[ -f "$_af" ]] && APK_FMT="$(python3 "$_af" "$APK" 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("format","unknown"))' 2>/dev/null)"
+fi
+[[ -n "$APK_FMT" ]] || APK_FMT="unknown"
+ACQ_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# parent hashes: the raw split/bundle files merged into this universal APK
+PARENT_JSON="[]"
+if [[ -n "${MERGED_FROM_JSON:-}" ]]; then PARENT_JSON="$MERGED_FROM_JSON"; fi
+python3 - "$OUT/artifact.json" "$PKG" "$APK_SHA" "$APK_VER" "$APK_FMT" "$(acq_source)" "$ACQ_AT" "$PARENT_JSON" "$APK" <<'PY'
+import json, os, subprocess, sys
+out, pkg, sha, ver, fmt, source, acq_at, parents, apk = sys.argv[1:10]
+rec = {
+  "schema": "artifact/v1",
+  "package": pkg,
+  "sha256": sha,
+  "version": ver or None,
+  "format": fmt,
+  "source": source,
+  "acquired_at": acq_at,
+  "tool_versions": {},
+  "parent_sha256s": json.loads(parents) if parents else [],
+}
+for tool, args in (("gplaydl", ["--version"]), ("apkeep", ["--version"]),
+                   ("apktool", ["--version"]), ("jadx", ["--version"])):
+    try:
+        rec["tool_versions"][tool] = subprocess.run([tool] + args, capture_output=True, text=True, timeout=15).stdout.strip().splitlines()[0][:120] or None
+    except Exception:
+        rec["tool_versions"][tool] = None
+try:
+    import hashlib
+    h = hashlib.sha256()
+    with open(apk, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    rec["sha256_recomputed"] = h.hexdigest()
+except Exception:
+    pass
+json.dump(rec, open(out, "w"), indent=2)
+PY
+echo "[+] Evidence: $OUT/artifact.json"
 
 # --- Decompile ----------------------------------------------------------------
 echo "[*] Decompile: resources / smali / manifest (apktool)..."
